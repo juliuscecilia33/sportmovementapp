@@ -36,6 +36,7 @@ export function getFrameByNumber(
 /**
  * Gets a frame by timestamp (in seconds)
  * Returns the closest frame to the given timestamp
+ * Uses binary search for O(log n) performance instead of O(n)
  */
 export function getFrameByTimestamp(
   analysis: AnalysisResult,
@@ -45,17 +46,35 @@ export function getFrameByTimestamp(
     return null;
   }
 
-  // Find the frame with the closest timestamp
-  let closestFrame = analysis.frames[0];
-  let minDiff = Math.abs(timestamp - closestFrame.timestamp);
+  const frames = analysis.frames;
 
-  for (const frame of analysis.frames) {
-    const diff = Math.abs(timestamp - frame.timestamp);
+  // Binary search to find closest frame (frames are sorted by timestamp)
+  let left = 0;
+  let right = frames.length - 1;
+  let closestIdx = 0;
+  let minDiff = Math.abs(timestamp - frames[0].timestamp);
+
+  while (left <= right) {
+    const mid = Math.floor((left + right) / 2);
+    const diff = Math.abs(timestamp - frames[mid].timestamp);
+
     if (diff < minDiff) {
       minDiff = diff;
-      closestFrame = frame;
+      closestIdx = mid;
+    }
+
+    if (frames[mid].timestamp < timestamp) {
+      left = mid + 1;
+    } else if (frames[mid].timestamp > timestamp) {
+      right = mid - 1;
+    } else {
+      // Exact match
+      closestIdx = mid;
+      break;
     }
   }
+
+  const closestFrame = frames[closestIdx];
 
   // Only return if the frame has keypoints
   if (closestFrame.keypoints.length === 0) {

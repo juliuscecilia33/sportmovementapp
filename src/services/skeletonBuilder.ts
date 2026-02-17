@@ -71,6 +71,18 @@ export function getSkeletonBones(): SkeletonBone[] {
       color: COLORS.HEAD,
       segment: BodySegment.HEAD,
     },
+    {
+      startId: MediaPipeLandmark.NOSE,
+      endId: MediaPipeLandmark.MOUTH_LEFT,
+      color: COLORS.HEAD,
+      segment: BodySegment.HEAD,
+    },
+    {
+      startId: MediaPipeLandmark.NOSE,
+      endId: MediaPipeLandmark.MOUTH_RIGHT,
+      color: COLORS.HEAD,
+      segment: BodySegment.HEAD,
+    },
 
     // Torso connections
     {
@@ -94,6 +106,19 @@ export function getSkeletonBones(): SkeletonBone[] {
     {
       startId: MediaPipeLandmark.LEFT_HIP,
       endId: MediaPipeLandmark.RIGHT_HIP,
+      color: COLORS.TORSO,
+      segment: BodySegment.TORSO,
+    },
+    // Neck connections (bridge head to torso)
+    {
+      startId: MediaPipeLandmark.LEFT_EAR,
+      endId: MediaPipeLandmark.LEFT_SHOULDER,
+      color: COLORS.TORSO,
+      segment: BodySegment.TORSO,
+    },
+    {
+      startId: MediaPipeLandmark.RIGHT_EAR,
+      endId: MediaPipeLandmark.RIGHT_SHOULDER,
       color: COLORS.TORSO,
       segment: BodySegment.TORSO,
     },
@@ -135,6 +160,12 @@ export function getSkeletonBones(): SkeletonBone[] {
       color: COLORS.LEFT_ARM,
       segment: BodySegment.LEFT_ARM,
     },
+    {
+      startId: MediaPipeLandmark.LEFT_INDEX,
+      endId: MediaPipeLandmark.LEFT_THUMB,
+      color: COLORS.LEFT_ARM,
+      segment: BodySegment.LEFT_ARM,
+    },
 
     // Right arm connections
     {
@@ -170,6 +201,12 @@ export function getSkeletonBones(): SkeletonBone[] {
     {
       startId: MediaPipeLandmark.RIGHT_PINKY,
       endId: MediaPipeLandmark.RIGHT_INDEX,
+      color: COLORS.RIGHT_ARM,
+      segment: BodySegment.RIGHT_ARM,
+    },
+    {
+      startId: MediaPipeLandmark.RIGHT_INDEX,
+      endId: MediaPipeLandmark.RIGHT_THUMB,
       color: COLORS.RIGHT_ARM,
       segment: BodySegment.RIGHT_ARM,
     },

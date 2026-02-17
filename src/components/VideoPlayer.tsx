@@ -23,6 +23,7 @@ export interface VideoPlayerRef {
   seek: (timeInSeconds: number) => Promise<void>;
   setRate: (rate: number) => Promise<void>;
   isPlaying: () => boolean;
+  getCurrentTime: () => Promise<number>;
 }
 
 const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
@@ -54,6 +55,15 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
         }
       },
       isPlaying: () => isPlaying,
+      getCurrentTime: async () => {
+        if (videoRef.current) {
+          const status = await videoRef.current.getStatusAsync();
+          if (status.isLoaded) {
+            return (status.positionMillis ?? 0) / 1000;
+          }
+        }
+        return 0;
+      },
     }));
 
     const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {

@@ -16,6 +16,7 @@ interface SkeletonRendererState {
   renderer: Renderer | null;
   jointMeshes: Map<number, THREE.Mesh>;
   boneMeshes: THREE.Mesh[];
+  volumeMeshes: THREE.Mesh[];
 }
 
 export function useSkeletonRenderer(config: SkeletonConfig) {
@@ -25,6 +26,7 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
     renderer: null,
     jointMeshes: new Map(),
     boneMeshes: [],
+    volumeMeshes: [],
   });
 
   const autoRotateRef = useRef<number>(0);
@@ -70,6 +72,7 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
       renderer,
       jointMeshes: new Map(),
       boneMeshes: [],
+      volumeMeshes: [],
     };
 
     console.log('[useSkeletonRenderer] Scene initialized successfully');
@@ -109,6 +112,60 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
   };
 
   /**
+   * Get bone radius based on body segment for realistic proportions
+   */
+  const getBoneRadius = (startId: number, endId: number, baseThickness: number): number => {
+    // MediaPipe landmark IDs
+    const SHOULDER_LEFT = 11, SHOULDER_RIGHT = 12;
+    const ELBOW_LEFT = 13, ELBOW_RIGHT = 14;
+    const WRIST_LEFT = 15, WRIST_RIGHT = 16;
+    const HIP_LEFT = 23, HIP_RIGHT = 24;
+    const KNEE_LEFT = 25, KNEE_RIGHT = 26;
+    const ANKLE_LEFT = 27, ANKLE_RIGHT = 28;
+
+    // Upper arms (shoulder to elbow) - thickest
+    if ((startId === SHOULDER_LEFT && endId === ELBOW_LEFT) ||
+        (startId === SHOULDER_RIGHT && endId === ELBOW_RIGHT)) {
+      return baseThickness * 1.5; // 0.045 if baseThickness is 0.03
+    }
+
+    // Forearms (elbow to wrist) - medium
+    if ((startId === ELBOW_LEFT && endId === WRIST_LEFT) ||
+        (startId === ELBOW_RIGHT && endId === WRIST_RIGHT)) {
+      return baseThickness * 1.0; // 0.03
+    }
+
+    // Upper legs (hip to knee) - thickest
+    if ((startId === HIP_LEFT && endId === KNEE_LEFT) ||
+        (startId === HIP_RIGHT && endId === KNEE_RIGHT)) {
+      return baseThickness * 1.5; // 0.045
+    }
+
+    // Lower legs (knee to ankle) - medium
+    if ((startId === KNEE_LEFT && endId === ANKLE_LEFT) ||
+        (startId === KNEE_RIGHT && endId === ANKLE_RIGHT)) {
+      return baseThickness * 1.0; // 0.03
+    }
+
+    // Hands and feet - thinnest
+    if (startId === WRIST_LEFT || startId === WRIST_RIGHT ||
+        startId === ANKLE_LEFT || startId === ANKLE_RIGHT ||
+        endId === WRIST_LEFT || endId === WRIST_RIGHT ||
+        endId === ANKLE_LEFT || endId === ANKLE_RIGHT) {
+      return baseThickness * 0.67; // 0.02
+    }
+
+    // Neck - medium-thick
+    if ((startId === 7 && endId === 11) || // left ear to left shoulder
+        (startId === 8 && endId === 12)) { // right ear to right shoulder
+      return baseThickness * 1.17; // 0.035
+    }
+
+    // Default to base thickness for head, torso, etc.
+    return baseThickness;
+  };
+
+  /**
    * Create a bone (cylinder) mesh between two keypoints
    */
   const createBoneMesh = (
@@ -133,9 +190,12 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
     const length = direction.length();
     const midpoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
 
+    // Calculate appropriate radius for this bone segment
+    const radius = getBoneRadius(start.id, end.id, thickness);
+
     const geometry = new THREE.CylinderGeometry(
-      thickness,
-      thickness,
+      radius,
+      radius,
       length,
       8
     );
@@ -157,6 +217,102 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
   };
 
   /**
+   * Create a head sphere volume mesh
+   */
+  const createHeadVolume = (
+    keypoints: Keypoint[],
+    centroid: { x: number; y: number; z: number }
+  ): THREE.Mesh | null => {
+    // Head keypoints: nose, eyes, ears (IDs 0-8)
+    const headKeypoints = keypoints.filter(kp => kp.id <= 8 && kp.visibility >= config.visibilityThreshold);
+
+    if (headKeypoints.length === 0) return null;
+
+    // Calculate head centroid
+    const headCentroid = {
+      x: headKeypoints.reduce((sum, kp) => sum + kp.x, 0) / headKeypoints.length,
+      y: headKeypoints.reduce((sum, kp) => sum + kp.y, 0) / headKeypoints.length,
+      z: headKeypoints.reduce((sum, kp) => sum + kp.z, 0) / headKeypoints.length,
+    };
+
+    const geometry = new THREE.SphereGeometry(0.09, 16, 16);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xFFD700, // Gold
+      transparent: true,
+      opacity: 0.35,
+      emissive: 0xFFD700,
+      emissiveIntensity: 0.1,
+      metalness: 0.3,
+      roughness: 0.7,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+
+    // Position at head centroid
+    const x = (headCentroid.x - centroid.x) * 2;
+    const y = -(headCentroid.y - centroid.y) * 2;
+    const z = -(headCentroid.z - centroid.z);
+    mesh.position.set(x, y, z);
+
+    return mesh;
+  };
+
+  /**
+   * Create a torso box volume mesh
+   */
+  const createTorsoVolume = (
+    keypoints: Keypoint[],
+    centroid: { x: number; y: number; z: number }
+  ): THREE.Mesh | null => {
+    // Torso keypoints: shoulders and hips (IDs 11, 12, 23, 24)
+    const leftShoulder = keypoints.find(kp => kp.id === 11);
+    const rightShoulder = keypoints.find(kp => kp.id === 12);
+    const leftHip = keypoints.find(kp => kp.id === 23);
+    const rightHip = keypoints.find(kp => kp.id === 24);
+
+    if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return null;
+    if (leftShoulder.visibility < config.visibilityThreshold ||
+        rightShoulder.visibility < config.visibilityThreshold ||
+        leftHip.visibility < config.visibilityThreshold ||
+        rightHip.visibility < config.visibilityThreshold) {
+      return null;
+    }
+
+    // Calculate torso dimensions
+    const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x) * 2;
+    const hipWidth = Math.abs(leftHip.x - rightHip.x) * 2;
+    const torsoHeight = Math.abs(leftShoulder.y - leftHip.y) * 2;
+    const avgWidth = (shoulderWidth + hipWidth) / 2;
+    const depth = avgWidth * 0.4; // Approximate depth as 40% of width
+
+    // Calculate torso centroid
+    const torsoCentroid = {
+      x: (leftShoulder.x + rightShoulder.x + leftHip.x + rightHip.x) / 4,
+      y: (leftShoulder.y + rightShoulder.y + leftHip.y + rightHip.y) / 4,
+      z: (leftShoulder.z + rightShoulder.z + leftHip.z + rightHip.z) / 4,
+    };
+
+    const geometry = new THREE.BoxGeometry(avgWidth, torsoHeight, depth);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xFF4444, // Red
+      transparent: true,
+      opacity: 0.35,
+      emissive: 0xFF4444,
+      emissiveIntensity: 0.1,
+      metalness: 0.3,
+      roughness: 0.7,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+
+    // Position at torso centroid
+    const x = (torsoCentroid.x - centroid.x) * 2;
+    const y = -(torsoCentroid.y - centroid.y) * 2;
+    const z = -(torsoCentroid.z - centroid.z);
+    mesh.position.set(x, y, z);
+
+    return mesh;
+  };
+
+  /**
    * Update the skeleton with new frame data
    */
   const updateSkeleton = useCallback((frameData: FrameData | null) => {
@@ -166,7 +322,7 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
       frameNumber: frameData?.frame_number,
     });
 
-    const { scene, jointMeshes, boneMeshes } = stateRef.current;
+    const { scene, jointMeshes, boneMeshes, volumeMeshes } = stateRef.current;
     if (!scene) {
       console.log('[useSkeletonRenderer] No scene available, skipping update');
       return;
@@ -177,6 +333,8 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
     jointMeshes.clear();
     boneMeshes.forEach((mesh) => scene.remove(mesh));
     boneMeshes.length = 0;
+    volumeMeshes.forEach((mesh) => scene.remove(mesh));
+    volumeMeshes.length = 0;
 
     if (!frameData || frameData.keypoints.length === 0) {
       console.log('[useSkeletonRenderer] No frame data or keypoints, clearing skeleton');
@@ -236,10 +394,25 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
       }
     });
 
+    // Create volume meshes for body mass visualization
+    const headVolume = createHeadVolume(frameData.keypoints, centroid);
+    if (headVolume) {
+      scene.add(headVolume);
+      volumeMeshes.push(headVolume);
+    }
+
+    const torsoVolume = createTorsoVolume(frameData.keypoints, centroid);
+    if (torsoVolume) {
+      scene.add(torsoVolume);
+      volumeMeshes.push(torsoVolume);
+    }
+
     stateRef.current.boneMeshes = boneMeshes;
+    stateRef.current.volumeMeshes = volumeMeshes;
     console.log('[useSkeletonRenderer] Skeleton rendered:', {
       joints: jointMeshes.size,
       bones: boneMeshes.length,
+      volumes: volumeMeshes.length,
     });
   }, [config]);
 

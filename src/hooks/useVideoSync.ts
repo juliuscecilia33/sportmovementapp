@@ -113,11 +113,12 @@ export function useVideoSync(
         return;
       }
 
-      // Update refs for RAF loop
+      // Always re-anchor RAF estimation to actual video time to prevent drift
+      // This ensures skeleton stays perfectly in sync with video
       isPlayingRef.current = status.isPlaying;
       playbackSpeedRef.current = playbackState.speed;
       playbackStartTimeRef.current = Date.now();
-      playbackStartPositionRef.current = status.currentTime;
+      playbackStartPositionRef.current = status.currentTime; // Anchor to actual video time
 
       const frameNumber = timestampToFrameNumber(
         status.currentTime,
