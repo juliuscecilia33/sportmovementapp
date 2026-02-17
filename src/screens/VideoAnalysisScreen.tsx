@@ -26,7 +26,7 @@ import { AnalysisResult, CameraAngle } from '../types/analysis';
 
 const { height } = Dimensions.get('window');
 const VIDEO_HEIGHT = height * 0.28; // 28% for video
-const SKELETON_HEIGHT = height * 0.40; // 40% for 3D skeleton
+const SKELETON_HEIGHT = height * 0.48; // 48% for 3D skeleton (increased from 40%)
 
 // Helper to get camera angle label
 const getCameraAngleLabel = (angle: CameraAngle): string => {
@@ -279,19 +279,6 @@ const VideoAnalysisScreen: React.FC = () => {
             onNextFrame={handleNextFrame}
             onSpeedChange={handleSpeedChange}
           />
-
-          {/* Info Bar */}
-          <View style={styles.infoBar}>
-            <Text style={styles.infoText}>
-              {analysis.video_filename} • {analysis.video_info.fps} FPS •{' '}
-              {analysis.video_info.total_frames} frames
-            </Text>
-            {currentFrame && (
-              <Text style={styles.infoText}>
-                {currentFrame.keypoints.length} keypoints detected
-              </Text>
-            )}
-          </View>
         </ScrollView>
 
         {/* Camera Angle Modal */}
@@ -459,18 +446,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 20,
-  },
-  infoBar: {
-    backgroundColor: '#0a0a0a',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#222',
-  },
-  infoText: {
-    color: '#666',
-    fontSize: 11,
-    textAlign: 'center',
   },
 });
 
