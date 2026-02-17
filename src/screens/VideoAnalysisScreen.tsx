@@ -3,6 +3,7 @@ import {
   View,
   StyleSheet,
   SafeAreaView,
+  ScrollView,
   ActivityIndicator,
   Text,
   Dimensions,
@@ -19,8 +20,8 @@ import { loadLatestAnalysis } from '../services/analysisLoader';
 import { AnalysisResult, CameraAngle } from '../types/analysis';
 
 const { height } = Dimensions.get('window');
-const VIDEO_HEIGHT = height * 0.35; // 35% for video
-const SKELETON_HEIGHT = height * 0.45; // 45% for 3D skeleton
+const VIDEO_HEIGHT = height * 0.28; // 28% for video
+const SKELETON_HEIGHT = height * 0.40; // 40% for 3D skeleton
 
 const VideoAnalysisScreen: React.FC = () => {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
@@ -111,59 +112,64 @@ const VideoAnalysisScreen: React.FC = () => {
   return (
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaView style={styles.container}>
-        {/* Video Player Section */}
-        <View style={[styles.videoSection, { height: VIDEO_HEIGHT }]}>
-          <VideoPlayer
-            ref={videoPlayerRef}
-            videoUri={video}
-            onPlaybackUpdate={handlePlaybackUpdate}
-            style={styles.flex}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+        >
+          {/* Video Player Section */}
+          <View style={[styles.videoSection, { height: VIDEO_HEIGHT }]}>
+            <VideoPlayer
+              ref={videoPlayerRef}
+              videoUri={video}
+              onPlaybackUpdate={handlePlaybackUpdate}
+              style={styles.flex}
+            />
+          </View>
+
+          {/* 3D Skeleton Section */}
+          <View style={[styles.skeletonSection, { height: SKELETON_HEIGHT }]}>
+            <Skeleton3DView
+              ref={skeleton3DRef}
+              frameData={currentFrame}
+              autoRotate={false}
+              style={styles.flex}
+            />
+          </View>
+
+          {/* Camera Controls */}
+          <CameraControls
+            onAngleChange={handleCameraAngleChange}
+            currentAngle={cameraAngle}
           />
-        </View>
 
-        {/* 3D Skeleton Section */}
-        <View style={[styles.skeletonSection, { height: SKELETON_HEIGHT }]}>
-          <Skeleton3DView
-            ref={skeleton3DRef}
-            frameData={currentFrame}
-            autoRotate={false}
-            style={styles.flex}
+          {/* Playback Controls */}
+          <PlaybackControls
+            isPlaying={playbackState.isPlaying}
+            currentTime={playbackState.currentTime}
+            duration={playbackState.duration}
+            currentFrame={playbackState.currentFrame}
+            totalFrames={analysis.video_info.total_frames}
+            speed={playbackState.speed}
+            onPlayPause={handlePlayPause}
+            onSeek={handleSeek}
+            onPreviousFrame={handlePreviousFrame}
+            onNextFrame={handleNextFrame}
+            onSpeedChange={handleSpeedChange}
           />
-        </View>
 
-        {/* Camera Controls */}
-        <CameraControls
-          onAngleChange={handleCameraAngleChange}
-          currentAngle={cameraAngle}
-        />
-
-        {/* Playback Controls */}
-        <PlaybackControls
-          isPlaying={playbackState.isPlaying}
-          currentTime={playbackState.currentTime}
-          duration={playbackState.duration}
-          currentFrame={playbackState.currentFrame}
-          totalFrames={analysis.video_info.total_frames}
-          speed={playbackState.speed}
-          onPlayPause={handlePlayPause}
-          onSeek={handleSeek}
-          onPreviousFrame={handlePreviousFrame}
-          onNextFrame={handleNextFrame}
-          onSpeedChange={handleSpeedChange}
-        />
-
-        {/* Info Bar */}
-        <View style={styles.infoBar}>
-          <Text style={styles.infoText}>
-            {analysis.video_filename} • {analysis.video_info.fps} FPS •{' '}
-            {analysis.video_info.total_frames} frames
-          </Text>
-          {currentFrame && (
+          {/* Info Bar */}
+          <View style={styles.infoBar}>
             <Text style={styles.infoText}>
-              {currentFrame.keypoints.length} keypoints detected
+              {analysis.video_filename} • {analysis.video_info.fps} FPS •{' '}
+              {analysis.video_info.total_frames} frames
             </Text>
-          )}
-        </View>
+            {currentFrame && (
+              <Text style={styles.infoText}>
+                {currentFrame.keypoints.length} keypoints detected
+              </Text>
+            )}
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -176,6 +182,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   centered: {
     flex: 1,
