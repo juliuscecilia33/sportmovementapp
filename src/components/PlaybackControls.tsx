@@ -1,0 +1,226 @@
+import React from 'react';
+import {
+  View,
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  Dimensions,
+} from 'react-native';
+import Slider from '@react-native-community/slider';
+
+interface PlaybackControlsProps {
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  currentFrame: number;
+  totalFrames: number;
+  speed: number;
+  onPlayPause: () => void;
+  onSeek: (timeInSeconds: number) => void;
+  onPreviousFrame: () => void;
+  onNextFrame: () => void;
+  onSpeedChange: (speed: number) => void;
+}
+
+const speedOptions = [0.25, 0.5, 1, 2];
+
+const PlaybackControls: React.FC<PlaybackControlsProps> = ({
+  isPlaying,
+  currentTime,
+  duration,
+  currentFrame,
+  totalFrames,
+  speed,
+  onPlayPause,
+  onSeek,
+  onPreviousFrame,
+  onNextFrame,
+  onSpeedChange,
+}) => {
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Timeline Slider */}
+      <View style={styles.timelineContainer}>
+        <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
+        <Slider
+          style={styles.slider}
+          minimumValue={0}
+          maximumValue={duration}
+          value={currentTime}
+          onValueChange={onSeek}
+          minimumTrackTintColor="#4a4aff"
+          maximumTrackTintColor="#333"
+          thumbTintColor="#4a4aff"
+        />
+        <Text style={styles.timeText}>{formatTime(duration)}</Text>
+      </View>
+
+      {/* Frame Info */}
+      <View style={styles.frameInfo}>
+        <Text style={styles.frameText}>
+          Frame {currentFrame} / {totalFrames}
+        </Text>
+      </View>
+
+      {/* Playback Controls */}
+      <View style={styles.controlsRow}>
+        {/* Frame Navigation */}
+        <View style={styles.frameControls}>
+          <TouchableOpacity
+            style={styles.frameButton}
+            onPress={onPreviousFrame}
+          >
+            <Text style={styles.frameButtonText}>◀◀</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.playButton}
+            onPress={onPlayPause}
+          >
+            <Text style={styles.playButtonText}>
+              {isPlaying ? '⏸' : '▶'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.frameButton}
+            onPress={onNextFrame}
+          >
+            <Text style={styles.frameButtonText}>▶▶</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Speed Control */}
+        <View style={styles.speedControls}>
+          <Text style={styles.speedLabel}>Speed:</Text>
+          {speedOptions.map((speedOption) => (
+            <TouchableOpacity
+              key={speedOption}
+              style={[
+                styles.speedButton,
+                speed === speedOption && styles.speedButtonActive,
+              ]}
+              onPress={() => onSpeedChange(speedOption)}
+            >
+              <Text
+                style={[
+                  styles.speedButtonText,
+                  speed === speedOption && styles.speedButtonTextActive,
+                ]}
+              >
+                {speedOption}x
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#1a1a1a',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  timelineContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  slider: {
+    flex: 1,
+    marginHorizontal: 8,
+    height: 40,
+  },
+  timeText: {
+    color: '#aaa',
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+    minWidth: 40,
+  },
+  frameInfo: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  frameText: {
+    color: '#888',
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  frameControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  frameButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2a2a2a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  frameButtonText: {
+    color: '#aaa',
+    fontSize: 14,
+  },
+  playButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#4a4aff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playButtonText: {
+    color: '#fff',
+    fontSize: 20,
+  },
+  speedControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  speedLabel: {
+    color: '#888',
+    fontSize: 11,
+    marginRight: 4,
+  },
+  speedButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 4,
+    backgroundColor: '#2a2a2a',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  speedButtonActive: {
+    backgroundColor: '#4a4aff',
+    borderColor: '#6a6aff',
+  },
+  speedButtonText: {
+    color: '#aaa',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  speedButtonTextActive: {
+    color: '#fff',
+  },
+});
+
+export default PlaybackControls;

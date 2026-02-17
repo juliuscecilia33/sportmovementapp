@@ -1,5 +1,5 @@
-import HomeScreen from './src/screens/HomeScreen';
+import VideoAnalysisScreen from './src/screens/VideoAnalysisScreen';
 
 export default function App() {
-  return <HomeScreen />;
+  return <VideoAnalysisScreen />;
 }
