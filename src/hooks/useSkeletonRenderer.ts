@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback, useMemo } from 'react';
 import { ExpoWebGLRenderingContext } from 'expo-gl';
 import { Renderer } from 'expo-three';
 import * as THREE from 'three';
@@ -34,7 +34,8 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
   /**
    * Initialize the Three.js scene
    */
-  const initializeScene = (gl: ExpoWebGLRenderingContext) => {
+  const initializeScene = useCallback((gl: ExpoWebGLRenderingContext) => {
+    console.log('[useSkeletonRenderer] Initializing scene');
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a1a);
 
@@ -71,15 +72,17 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
       boneMeshes: [],
     };
 
+    console.log('[useSkeletonRenderer] Scene initialized successfully');
     return { scene, camera, renderer };
-  };
+  }, []);
 
   /**
    * Create a joint (sphere) mesh
    */
   const createJointMesh = (
     keypoint: Keypoint,
-    size: number
+    size: number,
+    centroid: { x: number; y: number; z: number }
   ): THREE.Mesh => {
     const geometry = new THREE.SphereGeometry(size, 16, 16);
     const material = new THREE.MeshStandardMaterial({
@@ -90,11 +93,11 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
     });
     const mesh = new THREE.Mesh(geometry, material);
 
-    // Convert normalized coordinates to 3D space
+    // Convert normalized coordinates to 3D space, centered around skeleton centroid
     // X and Y are normalized [0,1], Z is already in meters
-    const x = (keypoint.x - 0.5) * 2; // Convert to [-1, 1]
-    const y = -(keypoint.y - 0.5) * 2; // Convert to [-1, 1] and flip Y
-    const z = -keypoint.z; // Negate Z for correct depth
+    const x = (keypoint.x - centroid.x) * 2; // Center around centroid
+    const y = -(keypoint.y - centroid.y) * 2; // Center and flip Y
+    const z = -(keypoint.z - centroid.z); // Center Z and negate for correct depth
 
     mesh.position.set(x, y, z);
 
@@ -112,17 +115,18 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
     start: Keypoint,
     end: Keypoint,
     color: string,
-    thickness: number
+    thickness: number,
+    centroid: { x: number; y: number; z: number }
   ): THREE.Mesh => {
     const startPos = new THREE.Vector3(
-      (start.x - 0.5) * 2,
-      -(start.y - 0.5) * 2,
-      -start.z
+      (start.x - centroid.x) * 2,
+      -(start.y - centroid.y) * 2,
+      -(start.z - centroid.z)
     );
     const endPos = new THREE.Vector3(
-      (end.x - 0.5) * 2,
-      -(end.y - 0.5) * 2,
-      -end.z
+      (end.x - centroid.x) * 2,
+      -(end.y - centroid.y) * 2,
+      -(end.z - centroid.z)
     );
 
     const direction = new THREE.Vector3().subVectors(endPos, startPos);
@@ -155,9 +159,18 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
   /**
    * Update the skeleton with new frame data
    */
-  const updateSkeleton = (frameData: FrameData | null) => {
+  const updateSkeleton = useCallback((frameData: FrameData | null) => {
+    console.log('[useSkeletonRenderer] updateSkeleton called', {
+      hasFrameData: !!frameData,
+      keypointsCount: frameData?.keypoints.length ?? 0,
+      frameNumber: frameData?.frame_number,
+    });
+
     const { scene, jointMeshes, boneMeshes } = stateRef.current;
-    if (!scene) return;
+    if (!scene) {
+      console.log('[useSkeletonRenderer] No scene available, skipping update');
+      return;
+    }
 
     // Clear existing meshes
     jointMeshes.forEach((mesh) => scene.remove(mesh));
@@ -166,8 +179,31 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
     boneMeshes.length = 0;
 
     if (!frameData || frameData.keypoints.length === 0) {
+      console.log('[useSkeletonRenderer] No frame data or keypoints, clearing skeleton');
       return;
     }
+
+    // Calculate centroid of visible keypoints to center skeleton at origin
+    const visibleKeypoints = frameData.keypoints.filter(
+      (kp) => kp.visibility >= config.visibilityThreshold
+    );
+
+    if (visibleKeypoints.length === 0) {
+      console.log('[useSkeletonRenderer] No visible keypoints after filtering');
+      return;
+    }
+
+    const centroid = {
+      x: visibleKeypoints.reduce((sum, kp) => sum + kp.x, 0) / visibleKeypoints.length,
+      y: visibleKeypoints.reduce((sum, kp) => sum + kp.y, 0) / visibleKeypoints.length,
+      z: visibleKeypoints.reduce((sum, kp) => sum + kp.z, 0) / visibleKeypoints.length,
+    };
+
+    console.log('[useSkeletonRenderer] Rendering skeleton:', {
+      centroid,
+      visibleKeypoints: visibleKeypoints.length,
+      totalKeypoints: frameData.keypoints.length,
+    });
 
     const bones = getSkeletonBones();
 
@@ -182,7 +218,8 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
             startKp,
             endKp,
             bone.color,
-            config.boneThickness
+            config.boneThickness,
+            centroid
           );
           scene.add(boneMesh);
           boneMeshes.push(boneMesh);
@@ -193,21 +230,29 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
     // Create joint meshes
     frameData.keypoints.forEach((keypoint) => {
       if (keypoint.visibility >= config.visibilityThreshold) {
-        const jointMesh = createJointMesh(keypoint, config.jointSize);
+        const jointMesh = createJointMesh(keypoint, config.jointSize, centroid);
         scene.add(jointMesh);
         jointMeshes.set(keypoint.id, jointMesh);
       }
     });
 
     stateRef.current.boneMeshes = boneMeshes;
-  };
+    console.log('[useSkeletonRenderer] Skeleton rendered:', {
+      joints: jointMeshes.size,
+      bones: boneMeshes.length,
+    });
+  }, [config]);
 
   /**
    * Set camera to a preset angle
    */
-  const setCameraAngle = (angle: CameraAngle) => {
+  const setCameraAngle = useCallback((angle: CameraAngle) => {
+    console.log('[useSkeletonRenderer] Setting camera angle:', angle);
     const { camera } = stateRef.current;
-    if (!camera) return;
+    if (!camera) {
+      console.log('[useSkeletonRenderer] No camera available');
+      return;
+    }
 
     cameraAngleRef.current = angle;
     const distance = cameraDistanceRef.current;
@@ -234,20 +279,21 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
     }
 
     camera.lookAt(0, 0, 0);
-  };
+    console.log('[useSkeletonRenderer] Camera position:', camera.position);
+  }, []);
 
   /**
    * Set camera zoom (distance)
    */
-  const setCameraDistance = (distance: number) => {
+  const setCameraDistance = useCallback((distance: number) => {
     cameraDistanceRef.current = Math.max(1, Math.min(10, distance));
     setCameraAngle(cameraAngleRef.current);
-  };
+  }, [setCameraAngle]);
 
   /**
    * Orbit camera around the skeleton
    */
-  const orbitCamera = (deltaX: number, deltaY: number) => {
+  const orbitCamera = useCallback((deltaX: number, deltaY: number) => {
     const { camera } = stateRef.current;
     if (!camera) return;
 
@@ -266,14 +312,18 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
     camera.position.z = distance * Math.sin(phiClamped) * Math.cos(theta);
 
     camera.lookAt(0, 0, 0);
-  };
+  }, []);
 
   /**
    * Render loop
    */
-  const startRenderLoop = (autoRotate: boolean = false) => {
+  const startRenderLoop = useCallback((autoRotate: boolean = false) => {
+    console.log('[useSkeletonRenderer] Starting render loop, autoRotate:', autoRotate);
     const { scene, camera, renderer } = stateRef.current;
-    if (!scene || !camera || !renderer) return;
+    if (!scene || !camera || !renderer) {
+      console.log('[useSkeletonRenderer] Cannot start render loop - missing scene/camera/renderer');
+      return;
+    }
 
     const render = () => {
       if (autoRotate) {
@@ -290,14 +340,24 @@ export function useSkeletonRenderer(config: SkeletonConfig) {
     };
 
     render();
-  };
+  }, []);
 
-  return {
-    initializeScene,
-    updateSkeleton,
-    setCameraAngle,
-    setCameraDistance,
-    orbitCamera,
-    startRenderLoop,
-  };
+  return useMemo(
+    () => ({
+      initializeScene,
+      updateSkeleton,
+      setCameraAngle,
+      setCameraDistance,
+      orbitCamera,
+      startRenderLoop,
+    }),
+    [
+      initializeScene,
+      updateSkeleton,
+      setCameraAngle,
+      setCameraDistance,
+      orbitCamera,
+      startRenderLoop,
+    ]
+  );
 }
