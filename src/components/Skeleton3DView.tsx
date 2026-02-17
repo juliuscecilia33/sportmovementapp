@@ -48,15 +48,25 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
     const lastScaleRef = useRef(1);
     const mergedConfig = { ...defaultConfig, ...config };
 
+    // Shared geometries for performance (create once, reuse many times)
+    const sharedGeometriesRef = useRef<{
+      sphere: THREE.SphereGeometry | null;
+      cylinder: THREE.CylinderGeometry | null;
+    }>({
+      sphere: null,
+      cylinder: null,
+    });
+
     /**
-     * Create a joint (sphere) mesh
+     * Create a joint (sphere) mesh - using shared geometry for performance
      */
     const createJointMesh = (
       keypoint: Keypoint,
       size: number,
       centroid: { x: number; y: number; z: number }
     ): THREE.Mesh => {
-      const geometry = new THREE.SphereGeometry(size, 16, 16);
+      // Reuse shared geometry instead of creating new one each time
+      const geometry = sharedGeometriesRef.current.sphere!;
       const material = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         emissive: 0x222222,
@@ -72,15 +82,15 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
 
       mesh.position.set(x, y, z);
 
-      // Scale based on visibility/confidence
-      const scale = 0.5 + (keypoint.visibility * 0.5);
+      // Scale based on visibility/confidence and size
+      const scale = size * (0.5 + (keypoint.visibility * 0.5));
       mesh.scale.setScalar(scale);
 
       return mesh;
     };
 
     /**
-     * Create a bone (cylinder) mesh between two keypoints
+     * Create a bone (cylinder) mesh between two keypoints - using shared geometry for performance
      */
     const createBoneMesh = (
       start: Keypoint,
@@ -104,7 +114,8 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       const length = direction.length();
       const midpoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
 
-      const geometry = new THREE.CylinderGeometry(thickness, thickness, length, 8);
+      // Reuse shared cylinder geometry (unit height = 1)
+      const geometry = sharedGeometriesRef.current.cylinder!;
       const material = new THREE.MeshStandardMaterial({
         color: new THREE.Color(color),
         emissive: new THREE.Color(color).multiplyScalar(0.2),
@@ -118,6 +129,9 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
         new THREE.Vector3(0, 1, 0),
         direction.normalize()
       );
+
+      // Scale to match bone length and thickness (cylinder is unit height)
+      mesh.scale.set(thickness, length, thickness);
 
       return mesh;
     };
@@ -284,6 +298,13 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
     const onContextCreate = (gl: ExpoWebGLRenderingContext) => {
       console.log('[Skeleton3DView] Initializing Three.js scene');
 
+      // Initialize shared geometries for performance (create once, reuse many times)
+      if (!sharedGeometriesRef.current.sphere) {
+        sharedGeometriesRef.current.sphere = new THREE.SphereGeometry(1, 16, 16); // Unit sphere
+        sharedGeometriesRef.current.cylinder = new THREE.CylinderGeometry(1, 1, 1, 8); // Unit cylinder
+        console.log('[Skeleton3DView] Shared geometries created');
+      }
+
       // Create scene
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x1a1a1a);
@@ -314,8 +335,8 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       directionalLight.position.set(5, 5, 5);
       scene.add(directionalLight);
 
-      // Add grid helper for reference
-      const gridHelper = new THREE.GridHelper(2, 10, 0x444444, 0x222222);
+      // Add grid helper for reference (brighter colors for visibility)
+      const gridHelper = new THREE.GridHelper(2, 10, 0xaaaaaa, 0x666666);
       gridHelper.position.y = -0.5;
       scene.add(gridHelper);
 
