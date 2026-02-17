@@ -8,7 +8,9 @@ import {
   Text,
   Dimensions,
   TouchableOpacity,
+  Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import VideoPlayer, { VideoPlayerRef } from '../components/VideoPlayer';
 import Skeleton3DView, {
@@ -29,6 +31,7 @@ const VideoAnalysisScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cameraAngle, setCameraAngle] = useState<CameraAngle>('front');
+  const [cameraModalVisible, setCameraModalVisible] = useState(false);
 
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
   const skeleton3DRef = useRef<Skeleton3DViewRef>(null);
@@ -79,6 +82,7 @@ const VideoAnalysisScreen: React.FC = () => {
   const handleCameraAngleChange = (angle: CameraAngle) => {
     setCameraAngle(angle);
     skeleton3DRef.current?.setCameraAngle(angle);
+    setCameraModalVisible(false); // Close modal after selection
   };
 
   if (loading) {
@@ -135,13 +139,14 @@ const VideoAnalysisScreen: React.FC = () => {
               autoRotate={false}
               style={styles.flex}
             />
+            {/* Camera Icon Button */}
+            <TouchableOpacity
+              style={styles.cameraIconButton}
+              onPress={() => setCameraModalVisible(true)}
+            >
+              <Ionicons name="camera" size={20} color="#fff" />
+            </TouchableOpacity>
           </View>
-
-          {/* Camera Controls */}
-          <CameraControls
-            onAngleChange={handleCameraAngleChange}
-            currentAngle={cameraAngle}
-          />
 
           {/* Playback Controls */}
           <PlaybackControls
@@ -171,6 +176,27 @@ const VideoAnalysisScreen: React.FC = () => {
             )}
           </View>
         </ScrollView>
+
+        {/* Camera Angle Modal */}
+        <Modal
+          visible={cameraModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setCameraModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setCameraModalVisible(false)}
+          >
+            <View style={styles.modalContent}>
+              <CameraControls
+                onAngleChange={handleCameraAngleChange}
+                currentAngle={cameraAngle}
+              />
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -218,6 +244,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     borderBottomWidth: 1,
     borderBottomColor: '#333',
+    position: 'relative',
+  },
+  cameraIconButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
   },
   infoBar: {
     backgroundColor: '#0a0a0a',

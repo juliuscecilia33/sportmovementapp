@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { CameraAngle } from '../types/analysis';
 
 interface CameraControlsProps {
@@ -13,7 +13,7 @@ const cameraAngles: Array<{ label: string; value: CameraAngle }> = [
   { label: 'Left', value: 'left' },
   { label: 'Right', value: 'right' },
   { label: 'Top', value: 'top' },
-  { label: '3/4', value: 'diagonal' },
+  { label: '3/4 View', value: 'diagonal' },
 ];
 
 const CameraControls: React.FC<CameraControlsProps> = ({
@@ -22,12 +22,11 @@ const CameraControls: React.FC<CameraControlsProps> = ({
 }) => {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Camera Angle</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <View style={styles.header}>
+        <Text style={styles.title}>Camera Angle</Text>
+        <View style={styles.handleBar} />
+      </View>
+      <View style={styles.gridContainer}>
         {cameraAngles.map((angle) => (
           <TouchableOpacity
             key={angle.value}
@@ -47,35 +46,49 @@ const CameraControls: React.FC<CameraControlsProps> = ({
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 12,
-    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
   },
-  label: {
-    fontSize: 12,
-    color: '#888',
+  header: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#444',
+    borderRadius: 2,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
     marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
   },
-  scrollContent: {
+  gridContainer: {
     flexDirection: 'row',
-    gap: 8,
-    paddingRight: 12, // Add padding for last item
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'center',
   },
   button: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
     backgroundColor: '#2a2a2a',
-    borderRadius: 6,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#333',
+    minWidth: 100,
+    alignItems: 'center',
   },
   buttonActive: {
     backgroundColor: '#4a4aff',
@@ -83,8 +96,8 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#aaa',
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
   },
   buttonTextActive: {
     color: '#fff',
