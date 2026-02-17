@@ -22,6 +22,7 @@ interface Skeleton3DViewProps {
 export interface Skeleton3DViewRef {
   setCameraAngle: (angle: CameraAngle) => void;
   setCameraDistance: (distance: number) => void;
+  updateSkeletonDirect: (frameData: FrameData | null) => void;
 }
 
 const defaultConfig: SkeletonConfig = {
@@ -30,6 +31,12 @@ const defaultConfig: SkeletonConfig = {
   visibilityThreshold: 0.4,
   showJointLabels: false,
 };
+
+// Static reusable vector for setFromUnitVectors (created once, never changes)
+const UP_VECTOR = new THREE.Vector3(0, 1, 0);
+
+// Cache skeleton bones array (structure never changes, called once at module level)
+const SKELETON_BONES = getSkeletonBones();
 
 interface ThreeJSState {
   scene: THREE.Scene;
@@ -57,6 +64,24 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       cylinder: null,
     });
 
+    // Vector3 object pool for temporary calculations (prevent GC thrashing)
+    const tempVectorsRef = useRef<{
+      startPos: THREE.Vector3;
+      endPos: THREE.Vector3;
+      direction: THREE.Vector3;
+      midpoint: THREE.Vector3;
+      centroid: THREE.Vector3;
+    }>({
+      startPos: new THREE.Vector3(),
+      endPos: new THREE.Vector3(),
+      direction: new THREE.Vector3(),
+      midpoint: new THREE.Vector3(),
+      centroid: new THREE.Vector3(),
+    });
+
+    // Pre-allocated Map for keypoint lookups (reused every frame)
+    const keypointMapRef = useRef<Map<number, Keypoint>>(new Map());
+
     /**
      * Update the skeleton with new frame data - using object pooling for performance
      */
@@ -73,22 +98,34 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
         return;
       }
 
-      // Calculate centroid of visible keypoints to center skeleton at origin
-      const visibleKeypoints = frameData.keypoints.filter(
-        (kp) => kp.visibility >= mergedConfig.visibilityThreshold
-      );
+      // Single-pass: calculate centroid + build keypoint Map (O(n) instead of O(n²))
+      let sumX = 0, sumY = 0, sumZ = 0, visibleCount = 0;
+      const keypointMap = keypointMapRef.current;
+      keypointMap.clear(); // Reuse existing Map instead of allocating new one
 
-      if (visibleKeypoints.length === 0) {
+      for (const kp of frameData.keypoints) {
+        keypointMap.set(kp.id, kp);
+        if (kp.visibility >= mergedConfig.visibilityThreshold) {
+          sumX += kp.x;
+          sumY += kp.y;
+          sumZ += kp.z;
+          visibleCount++;
+        }
+      }
+
+      if (visibleCount === 0) {
         jointMeshPool.forEach((mesh) => (mesh.visible = false));
         boneMeshPool.forEach((mesh) => (mesh.visible = false));
         return;
       }
 
-      const centroid = {
-        x: visibleKeypoints.reduce((sum, kp) => sum + kp.x, 0) / visibleKeypoints.length,
-        y: visibleKeypoints.reduce((sum, kp) => sum + kp.y, 0) / visibleKeypoints.length,
-        z: visibleKeypoints.reduce((sum, kp) => sum + kp.z, 0) / visibleKeypoints.length,
-      };
+      // Reuse centroid Vector3 from pool
+      const centroid = tempVectorsRef.current.centroid;
+      centroid.set(
+        sumX / visibleCount,
+        sumY / visibleCount,
+        sumZ / visibleCount
+      );
 
       // Update joint meshes from pool
       let jointIndex = 0;
@@ -118,44 +155,50 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       }
 
       // Update bone meshes from pool (materials already set during init, don't update)
-      const bones = getSkeletonBones();
+      const bones = SKELETON_BONES; // Use cached array instead of calling function
       let boneIndex = 0;
 
+      // Get temp vectors from pool
+      const { startPos, endPos, direction, midpoint } = tempVectorsRef.current;
+
       bones.forEach((bone, i) => {
-        if (isBoneVisible(bone, frameData.keypoints, mergedConfig.visibilityThreshold) && i < boneMeshPool.length) {
-          const startKp = frameData.keypoints.find((kp) => kp.id === bone.startId);
-          const endKp = frameData.keypoints.find((kp) => kp.id === bone.endId);
+        if (i >= boneMeshPool.length) return;
 
-          if (startKp && endKp) {
-            // Use bone index directly to get the pre-configured mesh with correct color
-            const mesh = boneMeshPool[i];
+        // Use O(1) Map lookup instead of O(n) find()
+        const startKp = keypointMap.get(bone.startId);
+        const endKp = keypointMap.get(bone.endId);
 
-            const startPos = new THREE.Vector3(
-              (startKp.x - centroid.x) * 2,
-              -(startKp.y - centroid.y) * 2,
-              -(startKp.z - centroid.z)
-            );
-            const endPos = new THREE.Vector3(
-              (endKp.x - centroid.x) * 2,
-              -(endKp.y - centroid.y) * 2,
-              -(endKp.z - centroid.z)
-            );
+        // Check visibility inline (avoid repeated Map lookups in isBoneVisible)
+        if (startKp && endKp &&
+            startKp.visibility >= mergedConfig.visibilityThreshold &&
+            endKp.visibility >= mergedConfig.visibilityThreshold) {
 
-            const direction = new THREE.Vector3().subVectors(endPos, startPos);
-            const length = direction.length();
-            const midpoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+          // Use bone index directly to get the pre-configured mesh with correct color
+          const mesh = boneMeshPool[i];
 
-            mesh.position.copy(midpoint);
-            mesh.quaternion.setFromUnitVectors(
-              new THREE.Vector3(0, 1, 0),
-              direction.normalize()
-            );
-            mesh.scale.set(mergedConfig.boneThickness, length, mergedConfig.boneThickness);
+          // Reuse pooled vectors instead of creating new ones
+          startPos.set(
+            (startKp.x - centroid.x) * 2,
+            -(startKp.y - centroid.y) * 2,
+            -(startKp.z - centroid.z)
+          );
+          endPos.set(
+            (endKp.x - centroid.x) * 2,
+            -(endKp.y - centroid.y) * 2,
+            -(endKp.z - centroid.z)
+          );
 
-            // Material color already set during initialization - no need to update
-            mesh.visible = true;
-            boneIndex++;
-          }
+          direction.subVectors(endPos, startPos);
+          const length = direction.length();
+          midpoint.addVectors(startPos, endPos).multiplyScalar(0.5);
+
+          mesh.position.copy(midpoint);
+          mesh.quaternion.setFromUnitVectors(UP_VECTOR, direction.normalize());
+          mesh.scale.set(mergedConfig.boneThickness, length, mergedConfig.boneThickness);
+
+          // Material color already set during initialization - no need to update
+          mesh.visible = true;
+          boneIndex++;
         }
       });
 
@@ -283,21 +326,17 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       scene.add(gridHelper);
 
       // Pre-create shared materials (one per color to avoid updates)
-      const jointMaterial = new THREE.MeshStandardMaterial({
+      // Use MeshBasicMaterial for joints - 50-60% faster than MeshStandardMaterial
+      const jointMaterial = new THREE.MeshBasicMaterial({
         color: 0xffffff,
-        emissive: 0x222222,
-        metalness: 0.3,
-        roughness: 0.7,
       });
 
-      const boneMaterials = new Map<string, THREE.MeshStandardMaterial>();
+      // Use MeshBasicMaterial for bones too - better performance
+      const boneMaterials = new Map<string, THREE.MeshBasicMaterial>();
       const boneColors = ['#FFD700', '#FF4444', '#4444FF', '#44FF44']; // Gold, Red, Blue, Green
       boneColors.forEach((color) => {
-        const mat = new THREE.MeshStandardMaterial({
+        const mat = new THREE.MeshBasicMaterial({
           color: new THREE.Color(color),
-          emissive: new THREE.Color(color).multiplyScalar(0.2),
-          metalness: 0.4,
-          roughness: 0.6,
         });
         boneMaterials.set(color, mat);
       });
@@ -315,7 +354,7 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       }
 
       // Create 37 bone meshes - we'll assign materials based on bone colors
-      const bones = getSkeletonBones();
+      const bones = SKELETON_BONES; // Use cached array
       for (let i = 0; i < 37; i++) {
         // Get material for this bone's color (or default to first bone color)
         const boneColor = i < bones.length ? bones[i].color : boneColors[0];
@@ -378,6 +417,7 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
     useImperativeHandle(ref, () => ({
       setCameraAngle,
       setCameraDistance,
+      updateSkeletonDirect: updateSkeleton,
     }));
 
     // Pan gesture for orbiting camera
