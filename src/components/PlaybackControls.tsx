@@ -22,8 +22,6 @@ interface PlaybackControlsProps {
   onSpeedChange: (speed: number) => void;
 }
 
-const speedOptions = [0.25, 0.5, 1, 2];
-
 const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   isPlaying,
   currentTime,
@@ -61,62 +59,28 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         <Text style={styles.timeText}>{formatTime(duration)}</Text>
       </View>
 
-      {/* Frame Info */}
-      <View style={styles.frameInfo}>
-        <Text style={styles.frameText}>
-          Frame {currentFrame} / {totalFrames}
-        </Text>
-      </View>
-
       {/* Playback Controls */}
       <View style={styles.controlsRow}>
-        {/* Frame Navigation */}
-        <View style={styles.frameControls}>
-          <TouchableOpacity
-            style={styles.frameButton}
-            onPress={onPreviousFrame}
-          >
-            <Text style={styles.frameButtonText}>◀◀</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.playButton}
-            onPress={onPlayPause}
-          >
-            <Text style={styles.playButtonText}>
-              {isPlaying ? '⏸' : '▶'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.frameButton}
-            onPress={onNextFrame}
-          >
-            <Text style={styles.frameButtonText}>▶▶</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Speed Control */}
-        <View style={styles.speedControls}>
-          <Text style={styles.speedLabel}>Speed:</Text>
-          {speedOptions.map((speedOption) => (
-            <TouchableOpacity
-              key={speedOption}
-              style={[
-                styles.speedButton,
-                speed === speedOption && styles.speedButtonActive,
-              ]}
-              onPress={() => onSpeedChange(speedOption)}
-            >
-              <Text
-                style={[
-                  styles.speedButtonText,
-                  speed === speedOption && styles.speedButtonTextActive,
-                ]}
-              >
-                {speedOption}x
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <TouchableOpacity
+          style={styles.frameButton}
+          onPress={onPreviousFrame}
+        >
+          <Text style={styles.frameButtonText}>◀◀</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.playButton}
+          onPress={onPlayPause}
+        >
+          <Text style={styles.playButtonText}>
+            {isPlaying ? '⏸' : '▶'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.frameButton}
+          onPress={onNextFrame}
+        >
+          <Text style={styles.frameButtonText}>▶▶</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -133,7 +97,7 @@ const styles = StyleSheet.create({
   timelineContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   slider: {
     flex: 1,
@@ -146,22 +110,9 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     minWidth: 40,
   },
-  frameInfo: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  frameText: {
-    color: '#888',
-    fontSize: 11,
-    letterSpacing: 0.5,
-  },
   controlsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  frameControls: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
   },
@@ -190,36 +141,6 @@ const styles = StyleSheet.create({
   playButtonText: {
     color: '#fff',
     fontSize: 20,
-  },
-  speedControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  speedLabel: {
-    color: '#888',
-    fontSize: 11,
-    marginRight: 4,
-  },
-  speedButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 4,
-    backgroundColor: '#2a2a2a',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  speedButtonActive: {
-    backgroundColor: '#4a4aff',
-    borderColor: '#6a6aff',
-  },
-  speedButtonText: {
-    color: '#aaa',
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  speedButtonTextActive: {
-    color: '#fff',
   },
 });
 

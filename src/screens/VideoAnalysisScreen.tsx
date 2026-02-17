@@ -9,6 +9,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Modal,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -17,6 +18,7 @@ import Skeleton3DView, {
   Skeleton3DViewRef,
 } from '../components/Skeleton3DView';
 import CameraControls from '../components/CameraControls';
+import SpeedControls from '../components/SpeedControls';
 import PlaybackControls from '../components/PlaybackControls';
 import { useVideoSync } from '../hooks/useVideoSync';
 import { loadLatestAnalysis } from '../services/analysisLoader';
@@ -26,15 +28,37 @@ const { height } = Dimensions.get('window');
 const VIDEO_HEIGHT = height * 0.28; // 28% for video
 const SKELETON_HEIGHT = height * 0.40; // 40% for 3D skeleton
 
+// Helper to get camera angle label
+const getCameraAngleLabel = (angle: CameraAngle): string => {
+  const labels: Record<CameraAngle, string> = {
+    front: 'Front',
+    back: 'Back',
+    left: 'Left',
+    right: 'Right',
+    top: 'Top',
+    diagonal: '3/4',
+  };
+  return labels[angle];
+};
+
 const VideoAnalysisScreen: React.FC = () => {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cameraAngle, setCameraAngle] = useState<CameraAngle>('front');
   const [cameraModalVisible, setCameraModalVisible] = useState(false);
+  const [speedModalVisible, setSpeedModalVisible] = useState(false);
 
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
   const skeleton3DRef = useRef<Skeleton3DViewRef>(null);
+
+  // Animation values for camera modal
+  const cameraOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const cameraSheetTranslateY = useRef(new Animated.Value(300)).current;
+
+  // Animation values for speed modal
+  const speedOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const speedSheetTranslateY = useRef(new Animated.Value(300)).current;
 
   const {
     currentFrame,
@@ -49,6 +73,70 @@ const VideoAnalysisScreen: React.FC = () => {
   useEffect(() => {
     loadAnalysisData();
   }, []);
+
+  // Animate camera modal open/close
+  useEffect(() => {
+    if (cameraModalVisible) {
+      Animated.parallel([
+        Animated.timing(cameraOverlayOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(cameraSheetTranslateY, {
+          toValue: 0,
+          damping: 20,
+          stiffness: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(cameraOverlayOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cameraSheetTranslateY, {
+          toValue: 300,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [cameraModalVisible]);
+
+  // Animate speed modal open/close
+  useEffect(() => {
+    if (speedModalVisible) {
+      Animated.parallel([
+        Animated.timing(speedOverlayOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(speedSheetTranslateY, {
+          toValue: 0,
+          damping: 20,
+          stiffness: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(speedOverlayOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(speedSheetTranslateY, {
+          toValue: 300,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [speedModalVisible]);
 
   const loadAnalysisData = async () => {
     try {
@@ -83,6 +171,11 @@ const VideoAnalysisScreen: React.FC = () => {
     setCameraAngle(angle);
     skeleton3DRef.current?.setCameraAngle(angle);
     setCameraModalVisible(false); // Close modal after selection
+  };
+
+  const handleSpeedChangeFromModal = (speed: number) => {
+    handleSpeedChange(speed);
+    setSpeedModalVisible(false); // Close modal after selection
   };
 
   if (loading) {
@@ -139,13 +232,37 @@ const VideoAnalysisScreen: React.FC = () => {
               autoRotate={false}
               style={styles.flex}
             />
-            {/* Camera Icon Button */}
-            <TouchableOpacity
-              style={styles.cameraIconButton}
-              onPress={() => setCameraModalVisible(true)}
-            >
-              <Ionicons name="camera" size={20} color="#fff" />
-            </TouchableOpacity>
+            {/* Frame Counter Badge (Left) */}
+            <View style={styles.frameBadge}>
+              <Text style={styles.frameBadgeText}>
+                {playbackState.currentFrame} / {analysis?.video_info.total_frames || 0}
+              </Text>
+            </View>
+
+            {/* Control Buttons (Right) */}
+            <View style={styles.controlButtonsContainer}>
+              {/* Speed Button */}
+              <TouchableOpacity
+                style={styles.controlButton}
+                onPress={() => setSpeedModalVisible(true)}
+              >
+                <Ionicons name="speedometer" size={18} color="#fff" />
+                <Text style={styles.controlButtonText}>
+                  {playbackState.speed}x
+                </Text>
+              </TouchableOpacity>
+
+              {/* Camera Button */}
+              <TouchableOpacity
+                style={styles.controlButton}
+                onPress={() => setCameraModalVisible(true)}
+              >
+                <Ionicons name="camera" size={18} color="#fff" />
+                <Text style={styles.controlButtonText}>
+                  {getCameraAngleLabel(cameraAngle)}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Playback Controls */}
@@ -181,21 +298,64 @@ const VideoAnalysisScreen: React.FC = () => {
         <Modal
           visible={cameraModalVisible}
           transparent
-          animationType="slide"
+          animationType="none"
           onRequestClose={() => setCameraModalVisible(false)}
         >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setCameraModalVisible(false)}
+          <Animated.View
+            style={[
+              styles.modalOverlay,
+              { opacity: cameraOverlayOpacity },
+            ]}
           >
-            <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.modalOverlayTouchable}
+              activeOpacity={1}
+              onPress={() => setCameraModalVisible(false)}
+            />
+            <Animated.View
+              style={[
+                styles.modalContent,
+                { transform: [{ translateY: cameraSheetTranslateY }] },
+              ]}
+            >
               <CameraControls
                 onAngleChange={handleCameraAngleChange}
                 currentAngle={cameraAngle}
               />
-            </View>
-          </TouchableOpacity>
+            </Animated.View>
+          </Animated.View>
+        </Modal>
+
+        {/* Speed Modal */}
+        <Modal
+          visible={speedModalVisible}
+          transparent
+          animationType="none"
+          onRequestClose={() => setSpeedModalVisible(false)}
+        >
+          <Animated.View
+            style={[
+              styles.modalOverlay,
+              { opacity: speedOverlayOpacity },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.modalOverlayTouchable}
+              activeOpacity={1}
+              onPress={() => setSpeedModalVisible(false)}
+            />
+            <Animated.View
+              style={[
+                styles.modalContent,
+                { transform: [{ translateY: speedSheetTranslateY }] },
+              ]}
+            >
+              <SpeedControls
+                onSpeedChange={handleSpeedChangeFromModal}
+                currentSpeed={playbackState.speed}
+              />
+            </Animated.View>
+          </Animated.View>
         </Modal>
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -246,23 +406,53 @@ const styles = StyleSheet.create({
     borderBottomColor: '#333',
     position: 'relative',
   },
-  cameraIconButton: {
+  frameBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  frameBadgeText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  controlButtonsContainer: {
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  controlButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  controlButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
+  },
+  modalOverlayTouchable: {
+    flex: 1,
   },
   modalContent: {
     backgroundColor: '#1a1a1a',
