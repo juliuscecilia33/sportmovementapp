@@ -28,11 +28,7 @@ const VideoAnalysisScreen: React.FC = () => {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cameraAngle, setCameraAngle] = useState<CameraAngle>('diagonal');
-
-  // Independent skeleton playback for debugging
-  const [skeletonPlaying, setSkeletonPlaying] = useState(false);
-  const skeletonFrameIndexRef = useRef(38); // Start at frame 38 (first frame with data)
+  const [cameraAngle, setCameraAngle] = useState<CameraAngle>('front');
 
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
   const skeleton3DRef = useRef<Skeleton3DViewRef>(null);
@@ -50,45 +46,6 @@ const VideoAnalysisScreen: React.FC = () => {
   useEffect(() => {
     loadAnalysisData();
   }, []);
-
-  // Independent skeleton animation loop for debugging
-  useEffect(() => {
-    if (!skeletonPlaying || !analysis || !skeleton3DRef.current) return;
-
-    let lastTime = Date.now();
-    let rafId: number;
-
-    const animate = () => {
-      const now = Date.now();
-      const elapsed = now - lastTime;
-
-      // Update at ~30 FPS (33ms per frame)
-      if (elapsed >= 33) {
-        skeletonFrameIndexRef.current++;
-
-        // Loop back to start if we reach the end
-        if (skeletonFrameIndexRef.current >= analysis.frames.length) {
-          skeletonFrameIndexRef.current = 38; // Back to first frame with data
-        }
-
-        const frame = analysis.frames[skeletonFrameIndexRef.current];
-        if (frame && frame.keypoints.length > 0) {
-          // Update skeleton directly without React setState
-          skeleton3DRef.current?.updateSkeletonDirect(frame);
-        }
-
-        lastTime = now;
-      }
-
-      rafId = requestAnimationFrame(animate);
-    };
-
-    rafId = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-    };
-  }, [skeletonPlaying, analysis]);
 
   const loadAnalysisData = async () => {
     try {
@@ -174,30 +131,10 @@ const VideoAnalysisScreen: React.FC = () => {
           <View style={[styles.skeletonSection, { height: SKELETON_HEIGHT }]}>
             <Skeleton3DView
               ref={skeleton3DRef}
-              frameData={skeletonPlaying ? null : currentFrame}
+              frameData={currentFrame}
               autoRotate={false}
               style={styles.flex}
             />
-          </View>
-
-          {/* Debug: Independent Skeleton Playback */}
-          <View style={styles.debugControls}>
-            <TouchableOpacity
-              style={[
-                styles.debugButton,
-                skeletonPlaying && styles.debugButtonActive,
-              ]}
-              onPress={() => {
-                setSkeletonPlaying(!skeletonPlaying);
-                if (!skeletonPlaying) {
-                  skeletonFrameIndexRef.current = 38; // Reset to start
-                }
-              }}
-            >
-              <Text style={styles.debugButtonText}>
-                {skeletonPlaying ? 'Stop Skeleton Test' : 'Test Skeleton Animation'}
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {/* Camera Controls */}
@@ -292,32 +229,6 @@ const styles = StyleSheet.create({
   infoText: {
     color: '#666',
     fontSize: 11,
-    textAlign: 'center',
-  },
-  debugControls: {
-    backgroundColor: '#0a0a0a',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-    alignItems: 'center',
-  },
-  debugButton: {
-    backgroundColor: '#333',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#555',
-  },
-  debugButtonActive: {
-    backgroundColor: '#4a4aff',
-    borderColor: '#6a6aff',
-  },
-  debugButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
     textAlign: 'center',
   },
 });

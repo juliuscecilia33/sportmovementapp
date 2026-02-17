@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, ScrollView } from 'react-native';
 import { CameraAngle } from '../types/analysis';
 
 interface CameraControlsProps {
@@ -23,7 +23,11 @@ const CameraControls: React.FC<CameraControlsProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Camera Angle</Text>
-      <View style={styles.buttonsRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {cameraAngles.map((angle) => (
           <TouchableOpacity
             key={angle.value}
@@ -43,7 +47,7 @@ const CameraControls: React.FC<CameraControlsProps> = ({
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 };
@@ -60,10 +64,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  buttonsRow: {
+  scrollContent: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
+    paddingRight: 12, // Add padding for last item
   },
   button: {
     paddingHorizontal: 16,

@@ -50,7 +50,7 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
   ({ frameData, autoRotate = false, style, config = {} }, ref) => {
     const threeStateRef = useRef<ThreeJSState | null>(null);
     const cameraDistanceRef = useRef<number>(2.5);
-    const cameraAngleRef = useRef<CameraAngle>('diagonal');
+    const cameraAngleRef = useRef<CameraAngle>('front');
     const autoRotateAngleRef = useRef<number>(0);
     const lastScaleRef = useRef(1);
     const mergedConfig = { ...defaultConfig, ...config };
@@ -294,18 +294,14 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x1a1a1a);
 
-      // Create camera
+      // Create camera with front view as default
       const camera = new THREE.PerspectiveCamera(
         50,
         gl.drawingBufferWidth / gl.drawingBufferHeight,
         0.1,
         1000
       );
-      camera.position.set(
-        cameraDistanceRef.current * 0.7,
-        cameraDistanceRef.current * 0.5,
-        cameraDistanceRef.current * 0.7
-      );
+      camera.position.set(0, 0, cameraDistanceRef.current); // Front view
       camera.lookAt(0, 0, 0);
 
       // Create renderer
