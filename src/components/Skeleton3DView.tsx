@@ -35,8 +35,8 @@ interface ThreeJSState {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   renderer: Renderer;
-  jointMeshes: Map<number, THREE.Mesh>;
-  boneMeshes: THREE.Mesh[];
+  jointMeshPool: THREE.Mesh[]; // Pre-allocated joint meshes (reused)
+  boneMeshPool: THREE.Mesh[]; // Pre-allocated bone meshes (reused)
 }
 
 const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
@@ -58,110 +58,18 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
     });
 
     /**
-     * Create a joint (sphere) mesh - using shared geometry for performance
-     */
-    const createJointMesh = (
-      keypoint: Keypoint,
-      size: number,
-      centroid: { x: number; y: number; z: number }
-    ): THREE.Mesh => {
-      // Reuse shared geometry instead of creating new one each time
-      const geometry = sharedGeometriesRef.current.sphere!;
-      const material = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        emissive: 0x222222,
-        metalness: 0.3,
-        roughness: 0.7,
-      });
-      const mesh = new THREE.Mesh(geometry, material);
-
-      // Convert normalized coordinates to 3D space, centered around skeleton centroid
-      const x = (keypoint.x - centroid.x) * 2;
-      const y = -(keypoint.y - centroid.y) * 2;
-      const z = -(keypoint.z - centroid.z);
-
-      mesh.position.set(x, y, z);
-
-      // Scale based on visibility/confidence and size
-      const scale = size * (0.5 + (keypoint.visibility * 0.5));
-      mesh.scale.setScalar(scale);
-
-      return mesh;
-    };
-
-    /**
-     * Create a bone (cylinder) mesh between two keypoints - using shared geometry for performance
-     */
-    const createBoneMesh = (
-      start: Keypoint,
-      end: Keypoint,
-      color: string,
-      thickness: number,
-      centroid: { x: number; y: number; z: number }
-    ): THREE.Mesh => {
-      const startPos = new THREE.Vector3(
-        (start.x - centroid.x) * 2,
-        -(start.y - centroid.y) * 2,
-        -(start.z - centroid.z)
-      );
-      const endPos = new THREE.Vector3(
-        (end.x - centroid.x) * 2,
-        -(end.y - centroid.y) * 2,
-        -(end.z - centroid.z)
-      );
-
-      const direction = new THREE.Vector3().subVectors(endPos, startPos);
-      const length = direction.length();
-      const midpoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
-
-      // Reuse shared cylinder geometry (unit height = 1)
-      const geometry = sharedGeometriesRef.current.cylinder!;
-      const material = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(color),
-        emissive: new THREE.Color(color).multiplyScalar(0.2),
-        metalness: 0.4,
-        roughness: 0.6,
-      });
-      const mesh = new THREE.Mesh(geometry, material);
-
-      mesh.position.copy(midpoint);
-      mesh.quaternion.setFromUnitVectors(
-        new THREE.Vector3(0, 1, 0),
-        direction.normalize()
-      );
-
-      // Scale to match bone length and thickness (cylinder is unit height)
-      mesh.scale.set(thickness, length, thickness);
-
-      return mesh;
-    };
-
-    /**
-     * Update the skeleton with new frame data
+     * Update the skeleton with new frame data - using object pooling for performance
      */
     const updateSkeleton = (frameData: FrameData | null) => {
-      console.log('[Skeleton3DView] updateSkeleton called', {
-        hasFrameData: !!frameData,
-        keypointsCount: frameData?.keypoints.length ?? 0,
-        frameNumber: frameData?.frame_number,
-      });
-
       const threeState = threeStateRef.current;
-      if (!threeState) {
-        console.log('[Skeleton3DView] No three state, skipping update');
-        return;
-      }
+      if (!threeState) return;
 
-      const { scene, jointMeshes, boneMeshes } = threeState;
+      const { jointMeshPool, boneMeshPool } = threeState;
 
-      // Clear existing meshes
-      jointMeshes.forEach((mesh) => scene.remove(mesh));
-      jointMeshes.clear();
-      boneMeshes.forEach((mesh) => scene.remove(mesh));
-      boneMeshes.length = 0;
-
+      // If no frame data, hide all meshes
       if (!frameData || frameData.keypoints.length === 0) {
-        console.log('[Skeleton3DView] No frame data or keypoints');
+        jointMeshPool.forEach((mesh) => (mesh.visible = false));
+        boneMeshPool.forEach((mesh) => (mesh.visible = false));
         return;
       }
 
@@ -171,7 +79,8 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       );
 
       if (visibleKeypoints.length === 0) {
-        console.log('[Skeleton3DView] No visible keypoints after filtering');
+        jointMeshPool.forEach((mesh) => (mesh.visible = false));
+        boneMeshPool.forEach((mesh) => (mesh.visible = false));
         return;
       }
 
@@ -181,46 +90,79 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
         z: visibleKeypoints.reduce((sum, kp) => sum + kp.z, 0) / visibleKeypoints.length,
       };
 
-      console.log('[Skeleton3DView] Rendering skeleton:', {
-        centroid,
-        visibleKeypoints: visibleKeypoints.length,
+      // Update joint meshes from pool
+      let jointIndex = 0;
+      frameData.keypoints.forEach((keypoint) => {
+        if (keypoint.visibility >= mergedConfig.visibilityThreshold && jointIndex < jointMeshPool.length) {
+          const mesh = jointMeshPool[jointIndex];
+
+          // Convert normalized coordinates to 3D space
+          const x = (keypoint.x - centroid.x) * 2;
+          const y = -(keypoint.y - centroid.y) * 2;
+          const z = -(keypoint.z - centroid.z);
+
+          mesh.position.set(x, y, z);
+
+          // Scale based on visibility/confidence and size
+          const scale = mergedConfig.jointSize * (0.5 + (keypoint.visibility * 0.5));
+          mesh.scale.setScalar(scale);
+
+          mesh.visible = true;
+          jointIndex++;
+        }
       });
 
-      const bones = getSkeletonBones();
+      // Hide unused joint meshes
+      for (let i = jointIndex; i < jointMeshPool.length; i++) {
+        jointMeshPool[i].visible = false;
+      }
 
-      // Create bone meshes first (so they appear behind joints)
-      bones.forEach((bone) => {
-        if (isBoneVisible(bone, frameData.keypoints, mergedConfig.visibilityThreshold)) {
+      // Update bone meshes from pool (materials already set during init, don't update)
+      const bones = getSkeletonBones();
+      let boneIndex = 0;
+
+      bones.forEach((bone, i) => {
+        if (isBoneVisible(bone, frameData.keypoints, mergedConfig.visibilityThreshold) && i < boneMeshPool.length) {
           const startKp = frameData.keypoints.find((kp) => kp.id === bone.startId);
           const endKp = frameData.keypoints.find((kp) => kp.id === bone.endId);
 
           if (startKp && endKp) {
-            const boneMesh = createBoneMesh(
-              startKp,
-              endKp,
-              bone.color,
-              mergedConfig.boneThickness,
-              centroid
+            // Use bone index directly to get the pre-configured mesh with correct color
+            const mesh = boneMeshPool[i];
+
+            const startPos = new THREE.Vector3(
+              (startKp.x - centroid.x) * 2,
+              -(startKp.y - centroid.y) * 2,
+              -(startKp.z - centroid.z)
             );
-            scene.add(boneMesh);
-            boneMeshes.push(boneMesh);
+            const endPos = new THREE.Vector3(
+              (endKp.x - centroid.x) * 2,
+              -(endKp.y - centroid.y) * 2,
+              -(endKp.z - centroid.z)
+            );
+
+            const direction = new THREE.Vector3().subVectors(endPos, startPos);
+            const length = direction.length();
+            const midpoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+
+            mesh.position.copy(midpoint);
+            mesh.quaternion.setFromUnitVectors(
+              new THREE.Vector3(0, 1, 0),
+              direction.normalize()
+            );
+            mesh.scale.set(mergedConfig.boneThickness, length, mergedConfig.boneThickness);
+
+            // Material color already set during initialization - no need to update
+            mesh.visible = true;
+            boneIndex++;
           }
         }
       });
 
-      // Create joint meshes
-      frameData.keypoints.forEach((keypoint) => {
-        if (keypoint.visibility >= mergedConfig.visibilityThreshold) {
-          const jointMesh = createJointMesh(keypoint, mergedConfig.jointSize, centroid);
-          scene.add(jointMesh);
-          jointMeshes.set(keypoint.id, jointMesh);
-        }
-      });
-
-      console.log('[Skeleton3DView] Skeleton rendered:', {
-        joints: jointMeshes.size,
-        bones: boneMeshes.length,
-      });
+      // Hide unused bone meshes
+      for (let i = boneIndex; i < boneMeshPool.length; i++) {
+        boneMeshPool[i].visible = false;
+      }
     };
 
     /**
@@ -340,13 +282,58 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       gridHelper.position.y = -0.5;
       scene.add(gridHelper);
 
+      // Pre-create shared materials (one per color to avoid updates)
+      const jointMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0x222222,
+        metalness: 0.3,
+        roughness: 0.7,
+      });
+
+      const boneMaterials = new Map<string, THREE.MeshStandardMaterial>();
+      const boneColors = ['#FFD700', '#FF4444', '#4444FF', '#44FF44']; // Gold, Red, Blue, Green
+      boneColors.forEach((color) => {
+        const mat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(color),
+          emissive: new THREE.Color(color).multiplyScalar(0.2),
+          metalness: 0.4,
+          roughness: 0.6,
+        });
+        boneMaterials.set(color, mat);
+      });
+
+      // Pre-create mesh pools for performance (object pooling)
+      const jointMeshPool: THREE.Mesh[] = [];
+      const boneMeshPool: THREE.Mesh[] = [];
+
+      // Create 33 joint meshes (max keypoints in MediaPipe) - all share same material
+      for (let i = 0; i < 33; i++) {
+        const mesh = new THREE.Mesh(sharedGeometriesRef.current.sphere!, jointMaterial);
+        mesh.visible = false; // Start invisible
+        scene.add(mesh);
+        jointMeshPool.push(mesh);
+      }
+
+      // Create 37 bone meshes - we'll assign materials based on bone colors
+      const bones = getSkeletonBones();
+      for (let i = 0; i < 37; i++) {
+        // Get material for this bone's color (or default to first bone color)
+        const boneColor = i < bones.length ? bones[i].color : boneColors[0];
+        const material = boneMaterials.get(boneColor) || boneMaterials.values().next().value;
+
+        const mesh = new THREE.Mesh(sharedGeometriesRef.current.cylinder!, material);
+        mesh.visible = false; // Start invisible
+        scene.add(mesh);
+        boneMeshPool.push(mesh);
+      }
+
       // Store state
       threeStateRef.current = {
         scene,
         camera,
         renderer,
-        jointMeshes: new Map(),
-        boneMeshes: [],
+        jointMeshPool,
+        boneMeshPool,
       };
 
       console.log('[Skeleton3DView] Three.js scene initialized');
