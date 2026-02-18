@@ -55,7 +55,7 @@ const MovementReportScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#4a4aff" />
+          <ActivityIndicator size="large" color="#004aad" />
           <Text style={styles.loadingText}>Generating movement report...</Text>
         </View>
       </SafeAreaView>
@@ -95,7 +95,7 @@ const MovementReportScreen: React.FC = () => {
           <Ionicons
             name="stats-chart"
             size={20}
-            color={activeTab === 'overview' ? '#4a4aff' : '#888'}
+            color={activeTab === 'overview' ? '#004aad' : '#888'}
           />
           <Text
             style={[
@@ -114,7 +114,7 @@ const MovementReportScreen: React.FC = () => {
           <Ionicons
             name="layers"
             size={20}
-            color={activeTab === 'phases' ? '#4a4aff' : '#888'}
+            color={activeTab === 'phases' ? '#004aad' : '#888'}
           />
           <Text
             style={[styles.tabText, activeTab === 'phases' && styles.activeTabText]}
@@ -130,7 +130,7 @@ const MovementReportScreen: React.FC = () => {
           <Ionicons
             name="trending-up"
             size={20}
-            color={activeTab === 'timeline' ? '#4a4aff' : '#888'}
+            color={activeTab === 'timeline' ? '#004aad' : '#888'}
           />
           <Text
             style={[
@@ -168,7 +168,7 @@ const OverviewTab: React.FC<{ report: MovementReport }> = ({ report }) => {
           label="Peak Velocity"
           value={`${keyMetrics.peakVelocity.toFixed(3)}`}
           unit="units/s"
-          color="#4a4aff"
+          color="#004aad"
         />
         <MetricCard
           icon="trending-up"
@@ -286,7 +286,7 @@ const TimelineTab: React.FC<{ report: MovementReport }> = ({ report }) => {
               backgroundGradientFrom: '#1a1a1a',
               backgroundGradientTo: '#2a2a2a',
               decimalPlaces: 3,
-              color: (opacity = 1) => `rgba(74, 74, 255, ${opacity})`,
+              color: (opacity = 1) => `rgba(0, 74, 173, ${opacity})`,
               labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
               style: {
                 borderRadius: 16,
@@ -294,7 +294,7 @@ const TimelineTab: React.FC<{ report: MovementReport }> = ({ report }) => {
               propsForDots: {
                 r: 3,
                 strokeWidth: 2,
-                stroke: '#4a4aff',
+                stroke: '#004aad',
               },
             }}
             bezier={true}
@@ -399,7 +399,7 @@ const KeyMomentCard: React.FC<{ moment: KeyMoment }> = ({ moment }) => (
 // Phase Card Component
 const PhaseCard: React.FC<{ phase: MovementPhase }> = ({ phase }) => {
   const phaseColors: Record<string, string> = {
-    Preparation: '#4a4aff',
+    Preparation: '#004aad',
     Acceleration: '#00c851',
     Contact: '#ff8800',
     'Follow-through': '#aa66cc',
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: '#4a4aff',
+    borderBottomColor: '#004aad',
   },
   tabText: {
     fontSize: 14,
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#4a4aff',
+    color: '#004aad',
   },
   content: {
     flex: 1,
@@ -614,8 +614,8 @@ const styles = StyleSheet.create({
   },
   momentMetric: {
     fontSize: 12,
-    color: '#4a4aff',
-    backgroundColor: 'rgba(74, 74, 255, 0.1)',
+    color: '#004aad',
+    backgroundColor: 'rgba(0, 74, 173, 0.1)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,

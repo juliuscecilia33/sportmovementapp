@@ -52,9 +52,9 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           maximumValue={duration}
           value={currentTime}
           onValueChange={onSeek}
-          minimumTrackTintColor="#4a4aff"
+          minimumTrackTintColor="#004aad"
           maximumTrackTintColor="#333"
-          thumbTintColor="#4a4aff"
+          thumbTintColor="#004aad"
         />
         <Text style={styles.timeText}>{formatTime(duration)}</Text>
       </View>
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#4a4aff',
+    backgroundColor: '#004aad',
     justifyContent: 'center',
     alignItems: 'center',
   },

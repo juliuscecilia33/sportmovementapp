@@ -227,7 +227,7 @@ const VideoAnalysisScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#4a4aff" />
+          <ActivityIndicator size="large" color="#004aad" />
           <Text style={styles.loadingText}>Loading analysis data...</Text>
         </View>
       </SafeAreaView>
@@ -633,8 +633,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   reportButton: {
-    backgroundColor: 'rgba(74, 74, 255, 0.9)',
-    borderColor: 'rgba(74, 74, 255, 0.4)',
+    backgroundColor: 'rgba(0, 74, 173, 0.9)',
+    borderColor: 'rgba(0, 74, 173, 0.4)',
   },
   controlButtonText: {
     color: '#fff',
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeTab: {
-    backgroundColor: '#4a4aff',
+    backgroundColor: '#004aad',
   },
   tabText: {
     color: '#aaa',
@@ -746,7 +746,7 @@ const styles = StyleSheet.create({
     paddingRight: 20,
   },
   insightBullet: {
-    color: '#4a4aff',
+    color: '#004aad',
     fontSize: 16,
     marginRight: 8,
     marginTop: 2,
@@ -777,7 +777,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   phaseDuration: {
-    color: '#4a4aff',
+    color: '#004aad',
     fontSize: 14,
     fontWeight: '600',
   },
