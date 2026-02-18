@@ -37,7 +37,11 @@ const FindingBottomSheet: React.FC<FindingBottomSheetProps> = ({
       </View>
 
       {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Frame & Time Info */}
         <View style={styles.infoRow}>
           <View style={styles.infoCard}>
@@ -96,8 +100,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: 20,
-    maxHeight: '70%',
   },
   header: {
     flexDirection: 'row',
@@ -121,6 +123,9 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 16,
+  },
+  contentContainer: {
+    paddingBottom: 20,
   },
   infoRow: {
     flexDirection: 'row',

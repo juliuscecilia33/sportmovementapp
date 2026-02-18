@@ -310,6 +310,12 @@ const VideoAnalysisScreen: React.FC = () => {
   };
 
   const handleJointPress = (jointId: number) => {
+    console.log('[VideoAnalysisScreen] Joint pressed:', {
+      jointId,
+      currentFrame: playbackState.currentFrame,
+      hasMovementReport: !!movementReport
+    });
+
     if (!movementReport) return;
 
     // Find the key moment associated with this highlighted joint
@@ -317,9 +323,17 @@ const VideoAnalysisScreen: React.FC = () => {
       (moment) => Math.abs(moment.frame - playbackState.currentFrame) <= 2
     );
 
+    console.log('[VideoAnalysisScreen] Nearby moment:', {
+      found: !!nearbyMoment,
+      moment: nearbyMoment
+    });
+
     if (nearbyMoment) {
       setSelectedFinding(nearbyMoment);
       setFindingModalVisible(true);
+      console.log('[VideoAnalysisScreen] Opening finding modal');
+    } else {
+      console.log('[VideoAnalysisScreen] No nearby moment found within 2 frames');
     }
   };
 
@@ -798,6 +812,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 20,
+    maxHeight: '70%',
   },
   reportModalContent: {
     backgroundColor: '#1a1a1a',
