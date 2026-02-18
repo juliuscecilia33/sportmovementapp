@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   TouchableOpacity,
@@ -6,9 +6,9 @@ import {
   StyleSheet,
   Dimensions,
   Animated,
-} from 'react-native';
-import Slider from '@react-native-community/slider';
-import { MarkerData } from '../utils/findingHelpers';
+} from "react-native";
+import Slider from "@react-native-community/slider";
+import { MarkerData } from "../utils/findingHelpers";
 
 interface PlaybackControlsProps {
   isPlaying: boolean;
@@ -46,7 +46,7 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const handleSliderLayout = (event: any) => {
@@ -84,13 +84,20 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
                     style={[
                       styles.marker,
                       {
-                        left: position - 4,
+                        left: position - 7,
                         backgroundColor: marker.color,
-                        opacity: isActive ? 1 : 0.7,
-                        transform: [{ scale: isActive ? 1.2 : 1 }],
+                        opacity: isActive ? 1 : 0.85,
+                        transform: [{ scale: isActive ? 1.3 : 1 }],
                       },
                     ]}
-                    onPress={() => onMarkerPress?.(marker)}
+                    onPress={() => {
+                      // Jump to the marker's frame
+                      const timeInSeconds =
+                        (marker.frame / totalFrames) * duration;
+                      onSeek(timeInSeconds);
+                      // Also open the finding modal
+                      onMarkerPress?.(marker);
+                    }}
                     activeOpacity={0.8}
                   >
                     {isActive && <View style={styles.markerPulse} />}
@@ -105,24 +112,13 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
       {/* Playback Controls */}
       <View style={styles.controlsRow}>
-        <TouchableOpacity
-          style={styles.frameButton}
-          onPress={onPreviousFrame}
-        >
+        <TouchableOpacity style={styles.frameButton} onPress={onPreviousFrame}>
           <Text style={styles.frameButtonText}>◀◀</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.playButton}
-          onPress={onPlayPause}
-        >
-          <Text style={styles.playButtonText}>
-            {isPlaying ? '⏸' : '▶'}
-          </Text>
+        <TouchableOpacity style={styles.playButton} onPress={onPlayPause}>
+          <Text style={styles.playButtonText}>{isPlaying ? "⏸" : "▶"}</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.frameButton}
-          onPress={onNextFrame}
-        >
+        <TouchableOpacity style={styles.frameButton} onPress={onNextFrame}>
           <Text style={styles.frameButtonText}>▶▶</Text>
         </TouchableOpacity>
       </View>
@@ -132,90 +128,103 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: "#1a1a1a",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderTopColor: '#333',
+    borderTopColor: "#333",
   },
   timelineContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
   },
   sliderContainer: {
     flex: 1,
     marginHorizontal: 8,
-    position: 'relative',
+    position: "relative",
   },
   slider: {
-    width: '100%',
+    width: "100%",
     height: 40,
   },
   markersContainer: {
-    position: 'absolute',
-    top: 0,
+    position: "absolute",
+    top: -2,
     left: 0,
     right: 0,
     height: 40,
-    justifyContent: 'center',
-    pointerEvents: 'box-none',
+    justifyContent: "flex-start",
+    pointerEvents: "box-none",
   },
   marker: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    pointerEvents: 'auto',
+    position: "absolute",
+    width: 14,
+    height: 18,
+    borderTopLeftRadius: 7,
+    borderTopRightRadius: 7,
+    borderBottomLeftRadius: 7,
+    borderBottomRightRadius: 7,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    pointerEvents: "auto",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+    transform: [{ rotate: "45deg" }],
   },
   markerPulse: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    position: "absolute",
+    width: 22,
+    height: 26,
+    borderTopLeftRadius: 11,
+    borderTopRightRadius: 11,
+    borderBottomLeftRadius: 11,
+    borderBottomRightRadius: 11,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: "rgba(255, 255, 255, 0.5)",
+    transform: [{ rotate: "45deg" }],
   },
   timeText: {
-    color: '#aaa',
+    color: "#aaa",
     fontSize: 12,
     minWidth: 40,
   },
   controlsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     gap: 12,
   },
   frameButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#2a2a2a',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#2a2a2a",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: "#333",
   },
   frameButtonText: {
-    color: '#aaa',
+    color: "#aaa",
     fontSize: 14,
   },
   playButton: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#004aad',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#004aad",
+    justifyContent: "center",
+    alignItems: "center",
   },
   playButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 20,
   },
 });
