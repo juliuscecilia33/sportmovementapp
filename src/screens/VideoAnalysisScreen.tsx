@@ -90,6 +90,7 @@ const VideoAnalysisScreen: React.FC = () => {
     playbackState,
     handlePlaybackUpdate,
     handleSeek,
+    handleScrub,
     handlePreviousFrame,
     handleNextFrame,
     handleSpeedChange,
@@ -453,6 +454,7 @@ const VideoAnalysisScreen: React.FC = () => {
             speed={playbackState.speed}
             onPlayPause={handlePlayPause}
             onSeek={handleSeek}
+            onScrub={handleScrub}
             onPreviousFrame={handlePreviousFrame}
             onNextFrame={handleNextFrame}
             onSpeedChange={handleSpeedChange}

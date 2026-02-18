@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   TouchableOpacity,
@@ -19,6 +19,7 @@ interface PlaybackControlsProps {
   speed: number;
   onPlayPause: () => void;
   onSeek: (timeInSeconds: number) => void;
+  onScrub?: (timeInSeconds: number) => void;
   onPreviousFrame: () => void;
   onNextFrame: () => void;
   onSpeedChange: (speed: number) => void;
@@ -35,6 +36,7 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   speed,
   onPlayPause,
   onSeek,
+  onScrub,
   onPreviousFrame,
   onNextFrame,
   onSpeedChange,
@@ -42,6 +44,7 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   onMarkerPress,
 }) => {
   const [sliderWidth, setSliderWidth] = useState(0);
+  const isScrubbingRef = useRef(false);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -65,7 +68,20 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             minimumValue={0}
             maximumValue={duration}
             value={currentTime}
-            onValueChange={onSeek}
+            onSlidingStart={() => {
+              isScrubbingRef.current = true;
+            }}
+            onValueChange={(value) => {
+              if (isScrubbingRef.current && onScrub) {
+                onScrub(value);
+              } else if (!isScrubbingRef.current) {
+                onSeek(value);
+              }
+            }}
+            onSlidingComplete={(value) => {
+              isScrubbingRef.current = false;
+              onSeek(value);
+            }}
             onLayout={handleSliderLayout}
             minimumTrackTintColor="#004aad"
             maximumTrackTintColor="#333"

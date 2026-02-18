@@ -46,7 +46,17 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       },
       seek: async (timeInSeconds: number) => {
         if (videoRef.current) {
-          await videoRef.current.setPositionAsync(timeInSeconds * 1000);
+          try {
+            await videoRef.current.setPositionAsync(
+              timeInSeconds * 1000,
+              {
+                toleranceMillisBefore: 0,
+                toleranceMillisAfter: 0,
+              }
+            );
+          } catch (error) {
+            console.error('Failed to seek video:', error);
+          }
         }
       },
       setRate: async (rate: number) => {

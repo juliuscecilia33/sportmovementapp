@@ -15,6 +15,7 @@ interface UseVideoSyncResult {
     duration: number;
   }) => void;
   handleSeek: (timeInSeconds: number) => void;
+  handleScrub: (timeInSeconds: number) => void;
   handlePreviousFrame: () => void;
   handleNextFrame: () => void;
   handleSpeedChange: (speed: number) => void;
@@ -146,8 +147,38 @@ export function useVideoSync(
 
       isSeekingRef.current = true;
 
-      await videoPlayerRef.current.pause();
-      await videoPlayerRef.current.seek(timeInSeconds);
+      try {
+        await videoPlayerRef.current.seek(timeInSeconds);
+
+        const frameNumber = timestampToFrameNumber(
+          timeInSeconds,
+          analysis.video_info.fps
+        );
+        const frame = getFrameByTimestamp(analysis, timeInSeconds);
+
+        setCurrentFrame(frame);
+        setPlaybackState((prev) => ({
+          ...prev,
+          isPlaying: false,
+          currentFrame: frameNumber,
+          currentTime: timeInSeconds,
+        }));
+      } catch (error) {
+        console.error('Seek operation failed:', error);
+      } finally {
+        setTimeout(() => {
+          isSeekingRef.current = false;
+        }, 100);
+      }
+    },
+    [analysis, videoPlayerRef]
+  );
+
+  const handleScrub = useCallback(
+    (timeInSeconds: number) => {
+      if (!analysis) {
+        return;
+      }
 
       const frameNumber = timestampToFrameNumber(
         timeInSeconds,
@@ -155,19 +186,20 @@ export function useVideoSync(
       );
       const frame = getFrameByTimestamp(analysis, timeInSeconds);
 
+      // Update skeleton directly for instant feedback
+      if (skeleton3DRef?.current && frame) {
+        skeleton3DRef.current.updateSkeletonDirect(frame);
+      }
+
+      // Update React state for UI
       setCurrentFrame(frame);
       setPlaybackState((prev) => ({
         ...prev,
-        isPlaying: false,
         currentFrame: frameNumber,
         currentTime: timeInSeconds,
       }));
-
-      setTimeout(() => {
-        isSeekingRef.current = false;
-      }, 100);
     },
-    [analysis, videoPlayerRef]
+    [analysis, skeleton3DRef]
   );
 
   const handlePreviousFrame = useCallback(async () => {
@@ -224,6 +256,7 @@ export function useVideoSync(
     playbackState,
     handlePlaybackUpdate,
     handleSeek,
+    handleScrub,
     handlePreviousFrame,
     handleNextFrame,
     handleSpeedChange,
