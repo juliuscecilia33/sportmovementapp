@@ -314,5 +314,5 @@ export function isBoneVisible(
     return false;
   }
 
-  return startPoint.visibility >= threshold && endPoint.visibility >= threshold;
+  return startPoint.visibility >= threshold || endPoint.visibility >= threshold;
 }

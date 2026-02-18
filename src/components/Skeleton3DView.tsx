@@ -264,8 +264,8 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
 
         // Check visibility inline (avoid repeated Map lookups in isBoneVisible)
         if (startKp && endKp &&
-            startKp.visibility >= mergedConfig.visibilityThreshold &&
-            endKp.visibility >= mergedConfig.visibilityThreshold) {
+            (startKp.visibility >= mergedConfig.visibilityThreshold ||
+             endKp.visibility >= mergedConfig.visibilityThreshold)) {
 
           // Use bone index directly to get the pre-configured mesh with correct color
           const mesh = boneMeshPool[i];
