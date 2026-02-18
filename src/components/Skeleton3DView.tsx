@@ -17,6 +17,8 @@ interface Skeleton3DViewProps {
   autoRotate?: boolean;
   style?: ViewStyle;
   config?: Partial<SkeletonConfig>;
+  highlightedJoints?: number[];
+  onJointPress?: (jointId: number) => void;
 }
 
 export interface Skeleton3DViewRef {
@@ -109,15 +111,18 @@ interface ThreeJSState {
   jointMeshPool: THREE.Mesh[]; // Pre-allocated joint meshes (reused)
   boneMeshPool: THREE.Mesh[]; // Pre-allocated bone meshes (reused)
   volumeMeshPool: THREE.Mesh[]; // Pre-allocated volume meshes (head + torso)
+  jointMaterial: THREE.MeshBasicMaterial; // Default joint material
+  highlightMaterial: THREE.MeshBasicMaterial; // Highlight joint material
 }
 
 const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
-  ({ frameData, autoRotate = false, style, config = {} }, ref) => {
+  ({ frameData, autoRotate = false, style, config = {}, highlightedJoints, onJointPress }, ref) => {
     const threeStateRef = useRef<ThreeJSState | null>(null);
     const cameraDistanceRef = useRef<number>(2.5);
     const cameraAngleRef = useRef<CameraAngle>('front');
     const autoRotateAngleRef = useRef<number>(0);
     const lastScaleRef = useRef(1);
+    const viewDimensionsRef = useRef<{ width: number; height: number }>({ width: 300, height: 300 });
     const mergedConfig = { ...defaultConfig, ...config };
 
     // Shared geometries for performance (create once, reuse many times)
@@ -150,6 +155,9 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
 
     // Pre-allocated Map for keypoint lookups (reused every frame)
     const keypointMapRef = useRef<Map<number, Keypoint>>(new Map());
+
+    // Track which mesh index corresponds to which keypoint ID for touch detection
+    const jointMeshToIdRef = useRef<Map<number, number>>(new Map());
 
     /**
      * Update the skeleton with new frame data - using object pooling for performance
@@ -200,6 +208,8 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
 
       // Update joint meshes from pool
       let jointIndex = 0;
+      jointMeshToIdRef.current.clear(); // Clear previous mappings
+
       frameData.keypoints.forEach((keypoint) => {
         if (keypoint.visibility >= mergedConfig.visibilityThreshold && jointIndex < jointMeshPool.length) {
           const mesh = jointMeshPool[jointIndex];
@@ -211,9 +221,22 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
 
           mesh.position.set(x, y, z);
 
-          // Scale based on visibility/confidence and size
-          const scale = mergedConfig.jointSize * (0.5 + (keypoint.visibility * 0.5));
-          mesh.scale.setScalar(scale);
+          // Check if this joint should be highlighted
+          const isHighlighted = (highlightedJoints || []).includes(keypoint.id);
+
+          // Apply appropriate material and scale
+          if (isHighlighted) {
+            mesh.material = threeState.highlightMaterial;
+            const scale = mergedConfig.jointSize * 1.8; // Larger for highlighted
+            mesh.scale.setScalar(scale);
+          } else {
+            mesh.material = threeState.jointMaterial;
+            const scale = mergedConfig.jointSize * (0.5 + (keypoint.visibility * 0.5));
+            mesh.scale.setScalar(scale);
+          }
+
+          // Track mesh index to keypoint ID for touch detection
+          jointMeshToIdRef.current.set(jointIndex, keypoint.id);
 
           mesh.visible = true;
           jointIndex++;
@@ -472,6 +495,13 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
         color: 0xffffff,
       });
 
+      // Highlight material for emphasized joints (with glow effect)
+      const highlightMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff4444, // Red
+        emissive: 0xff2222,
+        emissiveIntensity: 0.6,
+      });
+
       // Use MeshBasicMaterial for bones too - better performance
       const boneMaterials = new Map<string, THREE.MeshBasicMaterial>();
       const boneColors = ['#FFD700', '#FF4444', '#4444FF', '#44FF44']; // Gold, Red, Blue, Green
@@ -540,6 +570,8 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
         jointMeshPool,
         boneMeshPool,
         volumeMeshPool,
+        jointMaterial,
+        highlightMaterial,
       };
 
       console.log('[Skeleton3DView] Three.js scene initialized');
@@ -587,6 +619,59 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       updateSkeletonDirect: updateSkeleton,
     }));
 
+    // Tap gesture for joint interaction
+    const handleTap = (x: number, y: number) => {
+      console.log('[Skeleton3DView] Tap detected at:', { x, y });
+      const threeState = threeStateRef.current;
+      if (!threeState || !onJointPress || !frameData) {
+        console.log('[Skeleton3DView] Tap blocked:', {
+          hasThreeState: !!threeState,
+          hasOnJointPress: !!onJointPress,
+          hasFrameData: !!frameData
+        });
+        return;
+      }
+
+      const { camera, jointMeshPool } = threeState;
+      const { width, height } = viewDimensionsRef.current;
+      console.log('[Skeleton3DView] Using dimensions:', { width, height });
+
+      // Check each visible joint mesh
+      let closestJoint: { id: number; distance: number } | null = null;
+
+      jointMeshPool.forEach((mesh, meshIndex) => {
+        if (!mesh.visible) return;
+
+        // Project 3D position to screen space
+        const screenPos = mesh.position.clone().project(camera);
+        const screenX = ((screenPos.x + 1) / 2) * width;
+        const screenY = ((-screenPos.y + 1) / 2) * height;
+
+        // Calculate distance from tap
+        const distance = Math.sqrt((screenX - x) ** 2 + (screenY - y) ** 2);
+
+        // Check if within hit radius (30px) and closer than previous matches
+        if (distance < 30 && (!closestJoint || distance < closestJoint.distance)) {
+          const jointId = jointMeshToIdRef.current.get(meshIndex);
+          if (jointId !== undefined && highlightedJoints?.includes(jointId)) {
+            console.log('[Skeleton3DView] Found highlighted joint:', { jointId, distance });
+            closestJoint = { id: jointId, distance };
+          }
+        }
+      });
+
+      if (closestJoint) {
+        console.log('[Skeleton3DView] Calling onJointPress for joint:', closestJoint.id);
+        onJointPress(closestJoint.id);
+      } else {
+        console.log('[Skeleton3DView] No highlighted joint found within tap radius');
+      }
+    };
+
+    const tapGesture = Gesture.Tap().onEnd((event) => {
+      handleTap(event.x, event.y);
+    });
+
     // Pan gesture for orbiting camera
     const panGesture = Gesture.Pan().onUpdate((event) => {
       orbitCamera(event.translationX, event.translationY);
@@ -605,11 +690,22 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
         lastScaleRef.current = 1;
       });
 
-    const composedGesture = Gesture.Simultaneous(panGesture, pinchGesture);
+    const composedGesture = Gesture.Race(
+      tapGesture,
+      Gesture.Simultaneous(panGesture, pinchGesture)
+    );
 
     return (
       <GestureDetector gesture={composedGesture}>
-        <GLView style={[styles.container, style]} onContextCreate={onContextCreate} />
+        <GLView
+          style={[styles.container, style]}
+          onContextCreate={onContextCreate}
+          onLayout={(event) => {
+            const { width, height } = event.nativeEvent.layout;
+            viewDimensionsRef.current = { width, height };
+            console.log('[Skeleton3DView] View dimensions:', { width, height });
+          }}
+        />
       </GestureDetector>
     );
   }

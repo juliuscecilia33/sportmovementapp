@@ -20,11 +20,17 @@ import Skeleton3DView, {
 import CameraControls from '../components/CameraControls';
 import SpeedControls from '../components/SpeedControls';
 import PlaybackControls from '../components/PlaybackControls';
+import FindingBottomSheet from '../components/FindingBottomSheet';
 import { useVideoSync } from '../hooks/useVideoSync';
 import { loadLatestAnalysis } from '../services/analysisLoader';
 import { AnalysisResult, CameraAngle } from '../types/analysis';
 import { generateMovementReport } from '../services/movementAnalyzer';
-import { MovementReport } from '../types/report';
+import { MovementReport, KeyMoment } from '../types/report';
+import {
+  MarkerData,
+  getJointsForFinding,
+  getColorForFindingType,
+} from '../utils/findingHelpers';
 
 const { height } = Dimensions.get('window');
 const VIDEO_HEIGHT = height * 0.28; // 28% for video
@@ -53,6 +59,16 @@ const VideoAnalysisScreen: React.FC = () => {
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [movementReport, setMovementReport] = useState<MovementReport | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'timeline'>('overview');
+
+  // New state for visual indicators
+  const [timelineMarkers, setTimelineMarkers] = useState<MarkerData[]>([]);
+  const [highlightedJoints, setHighlightedJoints] = useState<number[]>([]);
+  const [findingModalVisible, setFindingModalVisible] = useState(false);
+  const [selectedFinding, setSelectedFinding] = useState<KeyMoment | null>(null);
+
+  // Animation values for finding modal
+  const findingOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const findingSheetTranslateY = useRef(new Animated.Value(400)).current;
 
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
   const skeleton3DRef = useRef<Skeleton3DViewRef>(null);
@@ -179,6 +195,38 @@ const VideoAnalysisScreen: React.FC = () => {
     }
   }, [reportModalVisible]);
 
+  // Animate finding modal open/close
+  useEffect(() => {
+    if (findingModalVisible) {
+      Animated.parallel([
+        Animated.timing(findingOverlayOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(findingSheetTranslateY, {
+          toValue: 0,
+          damping: 20,
+          stiffness: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(findingOverlayOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(findingSheetTranslateY, {
+          toValue: 400,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [findingModalVisible]);
+
   const loadAnalysisData = async () => {
     try {
       setLoading(true);
@@ -202,6 +250,37 @@ const VideoAnalysisScreen: React.FC = () => {
     }
   };
 
+  // Generate timeline markers from key moments
+  useEffect(() => {
+    if (movementReport) {
+      const markers: MarkerData[] = movementReport.keyMoments.map((moment) => ({
+        frame: moment.frame,
+        color: getColorForFindingType(moment.label),
+        type: 'keyMoment' as const,
+        label: moment.label,
+        keyMoment: moment,
+      }));
+      setTimelineMarkers(markers);
+    }
+  }, [movementReport]);
+
+  // Auto-highlight joints based on current frame
+  useEffect(() => {
+    if (!movementReport || !playbackState) return;
+
+    // Find if current frame is near a key moment (within 2 frames)
+    const nearbyMoment = movementReport.keyMoments.find(
+      (moment) => Math.abs(moment.frame - playbackState.currentFrame) <= 2
+    );
+
+    if (nearbyMoment) {
+      const joints = getJointsForFinding(nearbyMoment.label);
+      setHighlightedJoints(joints);
+    } else {
+      setHighlightedJoints([]);
+    }
+  }, [movementReport, playbackState.currentFrame]);
+
   const handlePlayPause = async () => {
     if (!videoPlayerRef.current) return;
 
@@ -221,6 +300,35 @@ const VideoAnalysisScreen: React.FC = () => {
   const handleSpeedChangeFromModal = (speed: number) => {
     handleSpeedChange(speed);
     setSpeedModalVisible(false); // Close modal after selection
+  };
+
+  const handleMarkerPress = (marker: MarkerData) => {
+    if (marker.keyMoment) {
+      setSelectedFinding(marker.keyMoment);
+      setFindingModalVisible(true);
+    }
+  };
+
+  const handleJointPress = (jointId: number) => {
+    if (!movementReport) return;
+
+    // Find the key moment associated with this highlighted joint
+    const nearbyMoment = movementReport.keyMoments.find(
+      (moment) => Math.abs(moment.frame - playbackState.currentFrame) <= 2
+    );
+
+    if (nearbyMoment) {
+      setSelectedFinding(nearbyMoment);
+      setFindingModalVisible(true);
+    }
+  };
+
+  const handleJumpToFrame = () => {
+    if (selectedFinding && analysis) {
+      const timeInSeconds = selectedFinding.timestamp;
+      handleSeek(timeInSeconds);
+      setFindingModalVisible(false);
+    }
   };
 
   if (loading) {
@@ -276,6 +384,8 @@ const VideoAnalysisScreen: React.FC = () => {
               frameData={currentFrame}
               autoRotate={false}
               style={styles.flex}
+              highlightedJoints={highlightedJoints}
+              onJointPress={handleJointPress}
             />
             {/* Frame Counter Badge (Left) */}
             <View style={styles.frameBadge}>
@@ -332,6 +442,8 @@ const VideoAnalysisScreen: React.FC = () => {
             onPreviousFrame={handlePreviousFrame}
             onNextFrame={handleNextFrame}
             onSpeedChange={handleSpeedChange}
+            markers={timelineMarkers}
+            onMarkerPress={handleMarkerPress}
           />
         </ScrollView>
 
@@ -546,6 +658,38 @@ const VideoAnalysisScreen: React.FC = () => {
                   </View>
                 )}
               </ScrollView>
+            </Animated.View>
+          </Animated.View>
+        </Modal>
+
+        {/* Finding Modal */}
+        <Modal
+          visible={findingModalVisible}
+          transparent={true}
+          animationType="none"
+          onRequestClose={() => setFindingModalVisible(false)}
+        >
+          <Animated.View
+            style={[
+              styles.modalOverlay,
+              { opacity: findingOverlayOpacity },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.modalOverlayTouchable}
+              activeOpacity={1}
+              onPress={() => setFindingModalVisible(false)}
+            />
+            <Animated.View
+              style={[
+                styles.modalContent,
+                { transform: [{ translateY: findingSheetTranslateY }] },
+              ]}
+            >
+              <FindingBottomSheet
+                keyMoment={selectedFinding}
+                onJumpToFrame={handleJumpToFrame}
+              />
             </Animated.View>
           </Animated.View>
         </Modal>
