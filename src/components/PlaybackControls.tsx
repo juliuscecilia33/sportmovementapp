@@ -107,7 +107,6 @@ const styles = StyleSheet.create({
   timeText: {
     color: '#aaa',
     fontSize: 12,
-    fontVariant: ['tabular-nums'],
     minWidth: 40,
   },
   controlsRow: {
