@@ -481,7 +481,7 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       if (!threeState) return;
 
       const { camera } = threeState;
-      const sensitivity = 0.005;
+      const sensitivity = 0.003;
 
       // Get current position in spherical coordinates
       const position = camera.position.clone();
@@ -749,8 +749,10 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
         const scaleChange = event.scale / lastScaleRef.current;
         lastScaleRef.current = event.scale;
 
+        // Apply damping to reduce zoom sensitivity (50% damping factor)
+        const dampedScale = 1 + (event.scale - 1) * 0.5;
         // Invert scale: pinch in = zoom out, pinch out = zoom in
-        setCameraDistance(2.5 / event.scale);
+        setCameraDistance(2.5 / dampedScale);
       })
       .onEnd(() => {
         lastScaleRef.current = 1;
