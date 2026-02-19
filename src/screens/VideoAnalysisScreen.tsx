@@ -288,6 +288,10 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
     if (playbackState.isPlaying) {
       await videoPlayerRef.current.pause();
     } else {
+      // If at end of video, reset to start before playing
+      if (playbackState.currentTime >= playbackState.duration - 0.1) {
+        await videoPlayerRef.current.seek(0);
+      }
       await videoPlayerRef.current.play();
     }
   };
