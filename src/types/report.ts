@@ -101,6 +101,10 @@ export interface MovementReport {
 
   // Overall insights
   overallInsights: string[];
+
+  // Weakness detection and drill recommendations
+  weaknesses: Weakness[];
+  drillRecommendations: DrillRecommendation[];
 }
 
 /**
@@ -110,4 +114,44 @@ export interface AnalysisOptions {
   minVisibility?: number; // Minimum keypoint visibility threshold (default: 0.5)
   smoothingWindow?: number; // Number of frames for smoothing calculations (default: 3)
   velocityThreshold?: number; // Threshold for detecting significant movement (default: 0.1)
+}
+
+/**
+ * Detected weakness in movement mechanics
+ */
+export interface Weakness {
+  category: string; // e.g., "Arm Mechanics", "Timing", "Power Generation"
+  issue: string; // e.g., "Low Contact Point", "Incomplete Arm Extension"
+  severity: 'low' | 'medium' | 'high';
+  detectedValue: number; // Actual measured value from analysis
+  optimalRange: {
+    min: number;
+    max: number;
+  };
+  explanation: string; // Why this is problematic and its impact
+}
+
+/**
+ * Training drill to address specific weaknesses
+ */
+export interface Drill {
+  id: string;
+  name: string;
+  description: string;
+  category: string; // Maps to weakness category
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  equipment: string[]; // Required equipment (e.g., "Ball", "Net", "Wall")
+  focusAreas: string[]; // What aspects this drill improves
+  instructions: string[]; // Step-by-step instructions
+  videoUrl?: string; // Optional: link to demonstration video
+  sets?: string; // Recommended sets/reps (e.g., "3 sets of 10")
+}
+
+/**
+ * Drill recommendation paired with detected weakness
+ */
+export interface DrillRecommendation {
+  weakness: Weakness;
+  recommendedDrills: Drill[]; // Top 2-3 drills for this weakness
+  priority: number; // 1 = highest priority
 }

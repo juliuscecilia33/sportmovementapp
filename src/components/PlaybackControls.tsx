@@ -108,7 +108,6 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
                         transform: [{ scale: isActive ? 1.3 : 1 }],
                       },
                     ]}
-                    pointerEvents="auto"
                     onPress={() => {
                       // Jump to the marker's frame
                       const timeInSeconds =

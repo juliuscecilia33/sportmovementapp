@@ -18,6 +18,8 @@ import {
   calculateTorsoAngle,
   calculateShoulderWidth,
 } from '../utils/biomechanics';
+import { detectWeaknesses } from './weaknessDetector';
+import { generateDrillRecommendations } from './drillRecommender';
 
 const DEFAULT_OPTIONS: AnalysisOptions = {
   minVisibility: 0.5,
@@ -55,6 +57,16 @@ export function generateMovementReport(
   // Generate overall insights
   const overallInsights = generateOverallInsights(keyMetrics, phases, keyMoments);
 
+  // Detect weaknesses in movement mechanics
+  console.log('[MovementAnalyzer] Detecting weaknesses...');
+  const weaknesses = detectWeaknesses(keyMetrics, phases, keyMoments);
+  console.log(`[MovementAnalyzer] Detected ${weaknesses.length} weakness(es)`);
+
+  // Generate drill recommendations based on weaknesses
+  console.log('[MovementAnalyzer] Generating drill recommendations...');
+  const drillRecommendations = generateDrillRecommendations(weaknesses);
+  console.log(`[MovementAnalyzer] Generated ${drillRecommendations.length} recommendation(s)`);
+
   const report: MovementReport = {
     videoFilename: analysis.video_filename,
     processedAt: analysis.processed_at,
@@ -70,6 +82,8 @@ export function generateMovementReport(
       angles: angleData,
     },
     overallInsights,
+    weaknesses,
+    drillRecommendations,
   };
 
   console.log('[MovementAnalyzer] Report generated successfully');
