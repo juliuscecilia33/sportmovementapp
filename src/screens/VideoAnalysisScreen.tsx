@@ -408,13 +408,6 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
     );
   }
 
-  console.log('[VideoAnalysisScreen] ========== About to render JSX ==========');
-  console.log('[VideoAnalysisScreen] About to render GestureHandlerRootView');
-  console.log('[VideoAnalysisScreen] About to render SafeAreaView');
-  console.log('[VideoAnalysisScreen] About to render ScrollView');
-  console.log('[VideoAnalysisScreen] About to render Video Player Section');
-  console.log('[VideoAnalysisScreen] About to render VideoPlayer component');
-
   return (
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaView style={styles.container}>

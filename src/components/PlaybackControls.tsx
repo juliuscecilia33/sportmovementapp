@@ -43,8 +43,6 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   markers = [],
   onMarkerPress,
 }) => {
-  console.log('[PlaybackControls] ========== PlaybackControls rendering START ==========');
-  console.log('[PlaybackControls] Props:', { isPlaying, currentTime, duration, currentFrame, totalFrames, markersLength: markers.length });
   const [sliderWidth, setSliderWidth] = useState(0);
   const isScrubbingRef = useRef(false);
 

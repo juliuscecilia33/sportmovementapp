@@ -14,18 +14,9 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
-  console.log('[App] ========== App component rendering START ==========');
-  console.log('[App] About to render HistoryProvider');
-  console.log('[App] About to render NavigationContainer');
-  console.log('[App] About to render Stack.Navigator');
-  console.log('[App] About to render Stack.Screens');
-
   return (
     <HistoryProvider>
-      <NavigationContainer
-        onReady={() => console.log('[App] NavigationContainer ready')}
-        onStateChange={(state) => console.log('[App] Navigation state changed:', state?.routes[state.index]?.name)}
-      >
+      <NavigationContainer>
         <Stack.Navigator
           initialRouteName="VideoAnalysis"
           screenOptions={{ headerShown: false }}
