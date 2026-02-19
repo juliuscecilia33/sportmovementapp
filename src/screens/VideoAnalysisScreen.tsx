@@ -423,6 +423,14 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
               onPlaybackUpdate={handlePlaybackUpdate}
               style={styles.flex}
             />
+            {/* History Button Overlay */}
+            <TouchableOpacity
+              style={styles.videoHistoryButton}
+              onPress={() => navigation.navigate('History')}
+            >
+              <Ionicons name="time" size={18} color="#fff" />
+              <Text style={styles.controlButtonText}>History</Text>
+            </TouchableOpacity>
           </View>
 
           {/* 3D Skeleton Section */}
@@ -444,14 +452,6 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
 
             {/* Control Buttons (Right) */}
             <View style={styles.controlButtonsContainer}>
-              {/* History Button */}
-              <TouchableOpacity
-                style={styles.controlButton}
-                onPress={() => navigation.navigate('History')}
-              >
-                <Ionicons name="time" size={18} color="#fff" />
-              </TouchableOpacity>
-
               {/* Report Button */}
               <TouchableOpacity
                 style={[styles.controlButton, styles.reportButton]}
@@ -792,6 +792,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     borderBottomWidth: 1,
     borderBottomColor: '#333',
+    position: 'relative',
+  },
+  videoHistoryButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   skeletonSection: {
     backgroundColor: '#1a1a1a',
