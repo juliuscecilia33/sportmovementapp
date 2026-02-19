@@ -206,12 +206,67 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
         sumZ / visibleCount
       );
 
-      // Update joint meshes from pool
+      // Build connectivity graph to filter out floating joints
+      const adjacency = new Map<number, Set<number>>();
+      const bones = SKELETON_BONES;
+
+      bones.forEach((bone) => {
+        const startKp = keypointMap.get(bone.startId);
+        const endKp = keypointMap.get(bone.endId);
+
+        // Check if bone will be rendered (same logic as bone rendering below)
+        if (startKp && endKp &&
+            (startKp.visibility >= mergedConfig.visibilityThreshold ||
+             endKp.visibility >= mergedConfig.visibilityThreshold)) {
+
+          // Build bidirectional adjacency graph
+          if (!adjacency.has(bone.startId)) adjacency.set(bone.startId, new Set());
+          if (!adjacency.has(bone.endId)) adjacency.set(bone.endId, new Set());
+          adjacency.get(bone.startId)!.add(bone.endId);
+          adjacency.get(bone.endId)!.add(bone.startId);
+        }
+      });
+
+      // BFS from torso anchor points to find all connected joints
+      const TORSO_ANCHORS = [11, 12, 23, 24]; // Left shoulder, right shoulder, left hip, right hip
+      const connectedJoints = new Set<number>();
+      const queue: number[] = [];
+
+      // Initialize queue with visible torso anchors
+      for (const anchorId of TORSO_ANCHORS) {
+        const kp = keypointMap.get(anchorId);
+        if (kp && kp.visibility >= mergedConfig.visibilityThreshold) {
+          connectedJoints.add(anchorId);
+          queue.push(anchorId);
+        }
+      }
+
+      // BFS traversal to find all connected joints
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        const neighbors = adjacency.get(current);
+
+        if (neighbors) {
+          for (const neighborId of neighbors) {
+            if (!connectedJoints.has(neighborId)) {
+              const kp = keypointMap.get(neighborId);
+              if (kp && kp.visibility >= mergedConfig.visibilityThreshold) {
+                connectedJoints.add(neighborId);
+                queue.push(neighborId);
+              }
+            }
+          }
+        }
+      }
+
+      // Update joint meshes from pool (only render connected joints)
       let jointIndex = 0;
       jointMeshToIdRef.current.clear(); // Clear previous mappings
 
       frameData.keypoints.forEach((keypoint) => {
-        if (keypoint.visibility >= mergedConfig.visibilityThreshold && jointIndex < jointMeshPool.length) {
+        if (keypoint.visibility >= mergedConfig.visibilityThreshold &&
+            connectedJoints.has(keypoint.id) &&
+            jointIndex < jointMeshPool.length) {
           const mesh = jointMeshPool[jointIndex];
 
           // Convert normalized coordinates to 3D space
@@ -249,7 +304,6 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       }
 
       // Update bone meshes from pool (materials already set during init, don't update)
-      const bones = SKELETON_BONES; // Use cached array instead of calling function
       let boneIndex = 0;
 
       // Get temp vectors from pool
