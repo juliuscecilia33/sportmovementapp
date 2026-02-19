@@ -43,6 +43,8 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   markers = [],
   onMarkerPress,
 }) => {
+  console.log('[PlaybackControls] ========== PlaybackControls rendering START ==========');
+  console.log('[PlaybackControls] Props:', { isPlaying, currentTime, duration, currentFrame, totalFrames, markersLength: markers.length });
   const [sliderWidth, setSliderWidth] = useState(0);
   const isScrubbingRef = useRef(false);
 
@@ -68,6 +70,8 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             minimumValue={0}
             maximumValue={duration}
             value={currentTime}
+            disabled={false}
+            step={0}
             onSlidingStart={() => {
               isScrubbingRef.current = true;
             }}
@@ -89,7 +93,7 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           />
           {/* Timeline Markers */}
           {sliderWidth > 0 && markers.length > 0 && (
-            <View style={styles.markersContainer}>
+            <View style={styles.markersContainer} pointerEvents="box-none">
               {markers.map((marker, index) => {
                 const position = (marker.frame / totalFrames) * sliderWidth;
                 const isActive = Math.abs(currentFrame - marker.frame) <= 2;
@@ -106,6 +110,7 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
                         transform: [{ scale: isActive ? 1.3 : 1 }],
                       },
                     ]}
+                    pointerEvents="auto"
                     onPress={() => {
                       // Jump to the marker's frame
                       const timeInSeconds =
@@ -171,7 +176,6 @@ const styles = StyleSheet.create({
     right: 0,
     height: 40,
     justifyContent: "flex-start",
-    pointerEvents: "box-none",
   },
   marker: {
     position: "absolute",
@@ -185,7 +189,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.5)",
     justifyContent: "center",
     alignItems: "center",
-    pointerEvents: "auto",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,

@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   ActivityIndicator,
   Text,
@@ -11,8 +10,11 @@ import {
   Modal,
   Animated,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../App';
 import VideoPlayer, { VideoPlayerRef } from '../components/VideoPlayer';
 import Skeleton3DView, {
   Skeleton3DViewRef,
@@ -31,6 +33,7 @@ import {
   getJointsForFinding,
   getColorForFindingType,
 } from '../utils/findingHelpers';
+import { useHistory } from '../context/HistoryContext';
 
 const { height } = Dimensions.get('window');
 const VIDEO_HEIGHT = height * 0.28; // 28% for video
@@ -49,8 +52,13 @@ const getCameraAngleLabel = (angle: CameraAngle): string => {
   return labels[angle];
 };
 
-const VideoAnalysisScreen: React.FC = () => {
+type Props = NativeStackScreenProps<RootStackParamList, 'VideoAnalysis'>;
+
+const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
+  console.log('[VideoAnalysisScreen] Component rendering with route params:', route.params);
+  const { getAnalysisById } = useHistory();
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [videoPath, setVideoPath] = useState<any>(require('../../assets/videos/testvideo.mp4'));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cameraAngle, setCameraAngle] = useState<CameraAngle>('front');
@@ -98,7 +106,7 @@ const VideoAnalysisScreen: React.FC = () => {
 
   useEffect(() => {
     loadAnalysisData();
-  }, []);
+  }, [route.params?.analysisId]);
 
   // Animate camera modal open/close
   useEffect(() => {
@@ -229,25 +237,53 @@ const VideoAnalysisScreen: React.FC = () => {
   }, [findingModalVisible]);
 
   const loadAnalysisData = async () => {
+    console.log('[VideoAnalysisScreen] loadAnalysisData started');
     try {
       setLoading(true);
       setError(null);
 
-      const data = await loadLatestAnalysis();
+      const analysisId = route.params?.analysisId;
+      console.log('[VideoAnalysisScreen] Analysis ID:', analysisId);
+      let data: AnalysisResult | null = null;
+      let video: any = require('../../assets/videos/testvideo.mp4');
+
+      if (analysisId) {
+        console.log('[VideoAnalysisScreen] Loading from history context...');
+        // Load from history context
+        const historyItem = getAnalysisById(analysisId);
+        if (historyItem) {
+          console.log('[VideoAnalysisScreen] Found history item:', historyItem.id);
+          data = historyItem.analysisData;
+          video = historyItem.videoPath;
+        } else {
+          console.log('[VideoAnalysisScreen] History item not found for ID:', analysisId);
+        }
+      } else {
+        console.log('[VideoAnalysisScreen] Loading default bundled analysis...');
+        // Load default bundled analysis
+        data = await loadLatestAnalysis();
+        console.log('[VideoAnalysisScreen] Default analysis loaded');
+      }
+
       if (!data) {
         throw new Error('No analysis data found');
       }
 
+      console.log('[VideoAnalysisScreen] Setting analysis and video path');
       setAnalysis(data);
+      setVideoPath(video);
 
       // Generate movement report from analysis data
+      console.log('[VideoAnalysisScreen] Generating movement report...');
       const report = generateMovementReport(data);
       setMovementReport(report);
+      console.log('[VideoAnalysisScreen] Movement report generated');
     } catch (err) {
-      console.error('Error loading analysis:', err);
+      console.error('[VideoAnalysisScreen] Error loading analysis:', err);
       setError(err instanceof Error ? err.message : 'Failed to load analysis');
     } finally {
       setLoading(false);
+      console.log('[VideoAnalysisScreen] loadAnalysisData completed');
     }
   };
 
@@ -372,8 +408,12 @@ const VideoAnalysisScreen: React.FC = () => {
     );
   }
 
-  // Use bundled video asset instead of absolute path
-  const video = require('../../assets/videos/testvideo.mp4');
+  console.log('[VideoAnalysisScreen] ========== About to render JSX ==========');
+  console.log('[VideoAnalysisScreen] About to render GestureHandlerRootView');
+  console.log('[VideoAnalysisScreen] About to render SafeAreaView');
+  console.log('[VideoAnalysisScreen] About to render ScrollView');
+  console.log('[VideoAnalysisScreen] About to render Video Player Section');
+  console.log('[VideoAnalysisScreen] About to render VideoPlayer component');
 
   return (
     <GestureHandlerRootView style={styles.flex}>
@@ -386,7 +426,7 @@ const VideoAnalysisScreen: React.FC = () => {
           <View style={[styles.videoSection, { height: VIDEO_HEIGHT }]}>
             <VideoPlayer
               ref={videoPlayerRef}
-              videoUri={video}
+              videoUri={videoPath}
               onPlaybackUpdate={handlePlaybackUpdate}
               style={styles.flex}
             />
@@ -411,6 +451,14 @@ const VideoAnalysisScreen: React.FC = () => {
 
             {/* Control Buttons (Right) */}
             <View style={styles.controlButtonsContainer}>
+              {/* History Button */}
+              <TouchableOpacity
+                style={styles.controlButton}
+                onPress={() => navigation.navigate('History')}
+              >
+                <Ionicons name="time" size={18} color="#fff" />
+              </TouchableOpacity>
+
               {/* Report Button */}
               <TouchableOpacity
                 style={[styles.controlButton, styles.reportButton]}
@@ -466,7 +514,7 @@ const VideoAnalysisScreen: React.FC = () => {
         {/* Camera Angle Modal */}
         <Modal
           visible={cameraModalVisible}
-          transparent={true}
+          transparent
           animationType="none"
           onRequestClose={() => setCameraModalVisible(false)}
         >
@@ -498,7 +546,7 @@ const VideoAnalysisScreen: React.FC = () => {
         {/* Speed Modal */}
         <Modal
           visible={speedModalVisible}
-          transparent={true}
+          transparent
           animationType="none"
           onRequestClose={() => setSpeedModalVisible(false)}
         >
@@ -530,7 +578,7 @@ const VideoAnalysisScreen: React.FC = () => {
         {/* Report Modal */}
         <Modal
           visible={reportModalVisible}
-          transparent={true}
+          transparent
           animationType="none"
           onRequestClose={() => setReportModalVisible(false)}
         >
@@ -681,7 +729,7 @@ const VideoAnalysisScreen: React.FC = () => {
         {/* Finding Modal */}
         <Modal
           visible={findingModalVisible}
-          transparent={true}
+          transparent
           animationType="none"
           onRequestClose={() => setFindingModalVisible(false)}
         >

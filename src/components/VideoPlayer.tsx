@@ -28,6 +28,7 @@ export interface VideoPlayerRef {
 
 const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
   ({ videoUri, onPlaybackUpdate, style }, ref) => {
+    console.log('[VideoPlayer] ========== VideoPlayer rendering START ==========');
     const videoRef = useRef<Video>(null);
     const [isPlaying, setIsPlaying] = useState(false);
 
@@ -61,7 +62,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       },
       setRate: async (rate: number) => {
         if (videoRef.current) {
-          await videoRef.current.setRateAsync(rate, true);
+          await videoRef.current.setStatusAsync({ rate: rate, shouldCorrectPitch: true });
         }
       },
       isPlaying: () => isPlaying,
@@ -89,6 +90,10 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
         }
       }
     };
+
+    console.log('[VideoPlayer] About to render Video component from expo-av');
+    console.log('[VideoPlayer] Video props:', { shouldPlay: false, isLooping: false, videoUri: typeof videoUri });
+    console.log('[VideoPlayer] Rendering Video element NOW');
 
     return (
       <View style={[styles.container, style]}>

@@ -117,6 +117,8 @@ interface ThreeJSState {
 
 const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
   ({ frameData, autoRotate = false, style, config = {}, highlightedJoints, onJointPress }, ref) => {
+    console.log('[Skeleton3DView] ========== Skeleton3DView rendering START ==========');
+    console.log('[Skeleton3DView] Props:', { hasFrameData: !!frameData, autoRotate, hasStyle: !!style });
     const threeStateRef = useRef<ThreeJSState | null>(null);
     const cameraDistanceRef = useRef<number>(2.5);
     const cameraAngleRef = useRef<CameraAngle>('front');
@@ -748,6 +750,9 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       tapGesture,
       Gesture.Simultaneous(panGesture, pinchGesture)
     );
+
+    console.log('[Skeleton3DView] About to render GestureDetector and GLView');
+    console.log('[Skeleton3DView] Rendering GLView NOW');
 
     return (
       <GestureDetector gesture={composedGesture}>
