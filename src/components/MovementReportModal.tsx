@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MovementReport } from '../types/report';
 import WeaknessCard from './WeaknessCard';
 import DrillRecommendationCard from './DrillRecommendationCard';
+import TimelineChart from './TimelineChart';
 
 const { width } = Dimensions.get('window');
 
@@ -256,12 +257,7 @@ const MovementReportModal: React.FC<MovementReportModalProps> = ({
 
             {activeTab === 'timeline' && movementReport && (
               <View>
-                <Text style={styles.sectionTitle}>
-                  Frame-by-Frame Analysis
-                </Text>
-                <Text style={styles.placeholderText}>
-                  Timeline visualization coming soon
-                </Text>
+                <TimelineChart movementReport={movementReport} />
               </View>
             )}
 
