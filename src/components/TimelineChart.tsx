@@ -163,8 +163,12 @@ const TimelineChart: React.FC<TimelineChartProps> = ({ movementReport }) => {
     setActiveMetrics((prev) => ({ ...prev, [metric]: !prev[metric] }));
   };
 
-  // Check if we have data
-  if (chartData.datasets.length === 0) {
+  // Check if we have any actual data (not just empty datasets due to deselected metrics)
+  const hasNoData =
+    movementReport.timelineData.velocities.length === 0 &&
+    movementReport.timelineData.angles.length === 0;
+
+  if (hasNoData) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>No timeline data available</Text>
@@ -338,7 +342,13 @@ const TimelineChart: React.FC<TimelineChartProps> = ({ movementReport }) => {
           <LineChart
             data={{
               labels: chartData.labels,
-              datasets: chartData.datasets,
+              datasets: chartData.datasets.length > 0
+                ? chartData.datasets
+                : [{
+                    data: chartData.frames.map(() => 0),
+                    color: () => 'transparent',
+                    strokeWidth: 0,
+                  }],
             }}
             width={CHART_WIDTH}
             height={CHART_HEIGHT}
