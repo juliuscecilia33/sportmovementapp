@@ -5,6 +5,7 @@ import { CameraAngle } from '../types/analysis';
 interface CameraControlsProps {
   onAngleChange: (angle: CameraAngle) => void;
   currentAngle?: CameraAngle;
+  onReset?: () => void;
 }
 
 const cameraAngles: Array<{ label: string; value: CameraAngle }> = [
@@ -19,6 +20,7 @@ const cameraAngles: Array<{ label: string; value: CameraAngle }> = [
 const CameraControls: React.FC<CameraControlsProps> = ({
   onAngleChange,
   currentAngle = 'front',
+  onReset,
 }) => {
   return (
     <View style={styles.container}>
@@ -47,6 +49,14 @@ const CameraControls: React.FC<CameraControlsProps> = ({
           </TouchableOpacity>
         ))}
       </View>
+      {onReset && (
+        <TouchableOpacity
+          style={styles.resetButton}
+          onPress={onReset}
+        >
+          <Text style={styles.resetButtonText}>Reset View</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -101,6 +111,21 @@ const styles = StyleSheet.create({
   },
   buttonTextActive: {
     color: '#fff',
+  },
+  resetButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    backgroundColor: '#004aad',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#0066cc',
+    alignItems: 'center',
+  },
+  resetButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

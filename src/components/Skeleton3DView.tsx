@@ -25,6 +25,7 @@ export interface Skeleton3DViewRef {
   setCameraAngle: (angle: CameraAngle) => void;
   setCameraDistance: (distance: number) => void;
   updateSkeletonDirect: (frameData: FrameData | null) => void;
+  resetCameraView: () => void;
 }
 
 const defaultConfig: SkeletonConfig = {
@@ -498,6 +499,16 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
     };
 
     /**
+     * Reset camera to default view (front angle, default distance)
+     */
+    const resetCameraView = () => {
+      console.log('[Skeleton3DView] Resetting camera view to defaults');
+      cameraDistanceRef.current = 2.5; // Reset to default distance
+      cameraAngleRef.current = 'front'; // Reset to front view
+      setCameraAngle('front'); // Apply the front view position
+    };
+
+    /**
      * Initialize the Three.js scene
      */
     const onContextCreate = (gl: ExpoWebGLRenderingContext) => {
@@ -671,6 +682,7 @@ const Skeleton3DView = forwardRef<Skeleton3DViewRef, Skeleton3DViewProps>(
       setCameraAngle,
       setCameraDistance,
       updateSkeletonDirect: updateSkeleton,
+      resetCameraView,
     }));
 
     // Tap gesture for joint interaction

@@ -298,6 +298,12 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
     setCameraModalVisible(false); // Close modal after selection
   };
 
+  const handleResetCamera = () => {
+    skeleton3DRef.current?.resetCameraView();
+    setCameraAngle('front'); // Update state to reflect reset
+    setCameraModalVisible(false); // Close modal after reset
+  };
+
   const handleSpeedChangeFromModal = (speed: number) => {
     handleSpeedChange(speed);
     setSpeedModalVisible(false); // Close modal after selection
@@ -495,6 +501,7 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
               <CameraControls
                 onAngleChange={handleCameraAngleChange}
                 currentAngle={cameraAngle}
+                onReset={handleResetCamera}
               />
             </Animated.View>
           </Animated.View>

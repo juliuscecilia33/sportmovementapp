@@ -350,6 +350,7 @@ const styles = StyleSheet.create({
   tabScrollContainer: {
     paddingLeft: 20,
     paddingTop: 16,
+    paddingBottom: 12,
     flexGrow: 0,
   },
   tabContainer: {
@@ -358,11 +359,13 @@ const styles = StyleSheet.create({
     paddingRight: 20,
   },
   tab: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
     backgroundColor: '#2a2a2a',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
   },
   activeTab: {
     backgroundColor: '#004aad',
@@ -371,13 +374,14 @@ const styles = StyleSheet.create({
     color: '#aaa',
     fontSize: 14,
     fontWeight: '600',
+    lineHeight: 20,
   },
   activeTabText: {
     color: '#fff',
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 24,
   },
   sectionTitle: {
     color: '#fff',
