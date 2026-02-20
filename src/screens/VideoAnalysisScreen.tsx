@@ -24,6 +24,7 @@ import SpeedControls from '../components/SpeedControls';
 import PlaybackControls from '../components/PlaybackControls';
 import FindingBottomSheet from '../components/FindingBottomSheet';
 import MovementReportModal from '../components/MovementReportModal';
+import FrameNoteModal from '../components/FrameNoteModal';
 import { useVideoSync } from '../hooks/useVideoSync';
 import { loadLatestAnalysis } from '../services/analysisLoader';
 import { AnalysisResult, CameraAngle } from '../types/analysis';
@@ -33,8 +34,10 @@ import {
   MarkerData,
   getJointsForFinding,
   getColorForFindingType,
+  getNoteMarkerColor,
 } from '../utils/findingHelpers';
 import { useHistory } from '../context/HistoryContext';
+import { FrameNote } from '../types/notes';
 
 const { height } = Dimensions.get('window');
 const VIDEO_HEIGHT = height * 0.28; // 28% for video
@@ -57,7 +60,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'VideoAnalysis'>;
 
 const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
   console.log('[VideoAnalysisScreen] Component rendering with route params:', route.params);
-  const { getAnalysisById } = useHistory();
+  const { getAnalysisById, addFrameNote, updateFrameNote, deleteFrameNote } = useHistory();
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [videoPath, setVideoPath] = useState<any>(require('../../assets/videos/testvideo.mp4'));
   const [loading, setLoading] = useState(true);
@@ -73,6 +76,11 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
   const [highlightedJoints, setHighlightedJoints] = useState<number[]>([]);
   const [findingModalVisible, setFindingModalVisible] = useState(false);
   const [selectedFinding, setSelectedFinding] = useState<KeyMoment | null>(null);
+
+  // Frame note state
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [editingNote, setEditingNote] = useState<FrameNote | null>(null);
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
 
   // Animation values for finding modal
   const findingOverlayOpacity = useRef(new Animated.Value(0)).current;
@@ -208,6 +216,7 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
 
       const analysisId = route.params?.analysisId;
       console.log('[VideoAnalysisScreen] Analysis ID:', analysisId);
+      setCurrentAnalysisId(analysisId || '20260217_124527_testvideo'); // Default ID
       let data: AnalysisResult | null = null;
       let video: any = require('../../assets/videos/testvideo.mp4');
 
@@ -251,7 +260,7 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
-  // Generate timeline markers from key moments
+  // Generate timeline markers from key moments and notes
   useEffect(() => {
     if (movementReport) {
       const markers: MarkerData[] = movementReport.keyMoments.map((moment) => ({
@@ -261,9 +270,22 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
         label: moment.label,
         keyMoment: moment,
       }));
+
+      // Add note markers
+      if (analysis?.frameNotes) {
+        const noteMarkers: MarkerData[] = analysis.frameNotes.map((note) => ({
+          frame: note.frameNumber,
+          color: getNoteMarkerColor(),
+          type: 'note' as const,
+          label: `Note: ${note.noteText.substring(0, 30)}...`,
+          frameNote: note,
+        }));
+        markers.push(...noteMarkers);
+      }
+
       setTimelineMarkers(markers);
     }
-  }, [movementReport]);
+  }, [movementReport, analysis?.frameNotes]);
 
   // Auto-highlight joints based on current frame
   useEffect(() => {
@@ -317,7 +339,44 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
     if (marker.keyMoment) {
       setSelectedFinding(marker.keyMoment);
       setFindingModalVisible(true);
+    } else if (marker.frameNote) {
+      // Open note modal for editing
+      setEditingNote(marker.frameNote);
+      setNoteModalVisible(true);
     }
+  };
+
+  const handleAddNotePress = () => {
+    if (!playbackState.isPlaying) {
+      setEditingNote(null);
+      setNoteModalVisible(true);
+    }
+  };
+
+  const handleSaveNote = (noteText: string) => {
+    if (!currentAnalysisId) return;
+
+    if (editingNote) {
+      // Update existing note
+      updateFrameNote(currentAnalysisId, editingNote.id, noteText);
+    } else {
+      // Add new note
+      addFrameNote(currentAnalysisId, {
+        frameNumber: playbackState.currentFrame,
+        timestamp: playbackState.currentTime,
+        noteText,
+        createdBy: 'Coach',
+      });
+    }
+
+    // Reload analysis data to update markers
+    loadAnalysisData();
+  };
+
+  const handleDeleteNote = () => {
+    if (!currentAnalysisId || !editingNote) return;
+    deleteFrameNote(currentAnalysisId, editingNote.id);
+    loadAnalysisData();
   };
 
   const handleJointPress = (jointId: number) => {
@@ -475,6 +534,7 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
             onSpeedChange={handleSpeedChange}
             markers={timelineMarkers}
             onMarkerPress={handleMarkerPress}
+            onAddNote={handleAddNotePress}
           />
         </ScrollView>
 
@@ -581,6 +641,20 @@ const VideoAnalysisScreen: React.FC<Props> = ({ navigation, route }) => {
             </Animated.View>
           </Animated.View>
         </Modal>
+
+        {/* Frame Note Modal */}
+        <FrameNoteModal
+          visible={noteModalVisible}
+          onClose={() => {
+            setNoteModalVisible(false);
+            setEditingNote(null);
+          }}
+          onSave={handleSaveNote}
+          onDelete={editingNote ? handleDeleteNote : undefined}
+          existingNote={editingNote || undefined}
+          frameNumber={playbackState.currentFrame}
+          timestamp={playbackState.currentTime}
+        />
       </SafeAreaView>
     </GestureHandlerRootView>
   );

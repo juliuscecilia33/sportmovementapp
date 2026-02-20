@@ -7,6 +7,7 @@ import {
   Dimensions,
   Animated,
 } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
 import Slider from "@react-native-community/slider";
 import { MarkerData } from "../utils/findingHelpers";
 
@@ -25,6 +26,7 @@ interface PlaybackControlsProps {
   onSpeedChange: (speed: number) => void;
   markers?: MarkerData[];
   onMarkerPress?: (marker: MarkerData) => void;
+  onAddNote?: () => void;
 }
 
 const PlaybackControls: React.FC<PlaybackControlsProps> = ({
@@ -42,6 +44,7 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   onSpeedChange,
   markers = [],
   onMarkerPress,
+  onAddNote,
 }) => {
   const [sliderWidth, setSliderWidth] = useState(0);
   const isScrubbingRef = useRef(false);
@@ -96,16 +99,22 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
                 const position = (marker.frame / totalFrames) * sliderWidth;
                 const isActive = Math.abs(currentFrame - marker.frame) <= 2;
 
+                const isNoteMarker = marker.type === 'note';
+
                 return (
                   <TouchableOpacity
                     key={index}
                     style={[
                       styles.marker,
+                      isNoteMarker && styles.noteMarker,
                       {
                         left: position - 7,
                         backgroundColor: marker.color,
                         opacity: isActive ? 1 : 0.85,
-                        transform: [{ scale: isActive ? 1.3 : 1 }],
+                        transform: [
+                          { scale: isActive ? 1.3 : 1 },
+                          { rotate: isNoteMarker ? '0deg' : '45deg' }
+                        ],
                       },
                     ]}
                     onPress={() => {
@@ -113,12 +122,15 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
                       const timeInSeconds =
                         (marker.frame / totalFrames) * duration;
                       onSeek(timeInSeconds);
-                      // Also open the finding modal
+                      // Also open the finding/note modal
                       onMarkerPress?.(marker);
                     }}
                     activeOpacity={0.8}
                   >
-                    {isActive && <View style={styles.markerPulse} />}
+                    {isActive && <View style={[styles.markerPulse, isNoteMarker && styles.noteMarkerPulse]} />}
+                    {isNoteMarker && (
+                      <Ionicons name="create" size={10} color="#fff" style={styles.noteIcon} />
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -139,6 +151,17 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         <TouchableOpacity style={styles.frameButton} onPress={onNextFrame}>
           <Text style={styles.frameButtonText}>▶▶</Text>
         </TouchableOpacity>
+
+        {/* Add Note Button (only visible when paused) */}
+        {!isPlaying && onAddNote && (
+          <TouchableOpacity
+            style={styles.noteButton}
+            onPress={onAddNote}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="create-outline" size={20} color="#fff" />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -191,7 +214,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 3,
     elevation: 5,
-    transform: [{ rotate: "45deg" }],
+  },
+  noteMarker: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  noteIcon: {
+    position: 'absolute',
   },
   markerPulse: {
     position: "absolute",
@@ -204,7 +234,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.5)",
-    transform: [{ rotate: "45deg" }],
+  },
+  noteMarkerPulse: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   timeText: {
     color: "#aaa",
@@ -216,6 +250,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: 12,
+    position: "relative",
   },
   frameButton: {
     width: 40,
@@ -242,6 +277,18 @@ const styles = StyleSheet.create({
   playButtonText: {
     color: "#fff",
     fontSize: 20,
+  },
+  noteButton: {
+    position: "absolute",
+    right: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#ffbb00",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#333",
   },
 });
 

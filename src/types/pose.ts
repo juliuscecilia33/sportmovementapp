@@ -1,3 +1,5 @@
+import { FrameNote } from './notes';
+
 export interface Keypoint {
   id: number;
   name: string;
@@ -27,6 +29,7 @@ export interface AnalysisResult {
   video_info: VideoInfo;
   keypoints_per_frame: number;
   frames: FrameData[];
+  frameNotes?: FrameNote[]; // Optional array of coach/player notes for specific frames
 }
 
 export interface AnalyzeVideoResponse {

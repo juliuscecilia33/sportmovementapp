@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 import { useHistory, HistoryItem } from '../context/HistoryContext';
+import AssignPlayerModal from '../components/AssignPlayerModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'History'>;
 
@@ -19,7 +20,9 @@ const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 32;
 
 const HistoryScreen: React.FC<Props> = ({ navigation }) => {
-  const { analyses } = useHistory();
+  const { analyses, assignVideo } = useHistory();
+  const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
 
   const formatDate = (date: Date): string => {
     const now = new Date();
@@ -37,59 +40,92 @@ const HistoryScreen: React.FC<Props> = ({ navigation }) => {
     });
   };
 
+  const handleAssignPress = (analysisId: string) => {
+    setSelectedAnalysisId(analysisId);
+    setAssignModalVisible(true);
+  };
+
+  const handleAssignPlayer = (playerName: string) => {
+    if (selectedAnalysisId) {
+      assignVideo(selectedAnalysisId, playerName);
+    }
+  };
+
   const renderHistoryItem = ({ item }: { item: HistoryItem }) => {
-    const { analysisData, keyMetrics, addedAt } = item;
+    const { analysisData, keyMetrics, addedAt, assignedTo } = item;
     const { video_info } = analysisData;
 
     return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => navigation.navigate('VideoAnalysis', { analysisId: item.id })}
-        activeOpacity={0.7}
-      >
-        {/* Video Thumbnail Placeholder */}
-        <View style={styles.thumbnail}>
-          <Ionicons name="videocam" size={40} color="#004aad" />
-          <Text style={styles.thumbnailText}>
-            {video_info.duration_seconds.toFixed(1)}s
-          </Text>
-        </View>
-
-        {/* Content */}
-        <View style={styles.content}>
-          <Text style={styles.filename} numberOfLines={1}>
-            {analysisData.video_filename}
-          </Text>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoText}>
-              {video_info.total_frames} frames • {video_info.fps} fps
+      <View style={styles.cardContainer}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate('VideoAnalysis', { analysisId: item.id })}
+          activeOpacity={0.7}
+        >
+          {/* Video Thumbnail Placeholder */}
+          <View style={styles.thumbnail}>
+            <Ionicons name="videocam" size={40} color="#004aad" />
+            <Text style={styles.thumbnailText}>
+              {video_info.duration_seconds.toFixed(1)}s
             </Text>
-            <Text style={styles.dateText}>{formatDate(addedAt)}</Text>
           </View>
 
-          {/* Key Metrics Summary */}
-          <View style={styles.metricsRow}>
-            <View style={styles.metricBadge}>
-              <Ionicons name="speedometer" size={12} color="#004aad" />
-              <Text style={styles.metricText}>
-                {keyMetrics.peakVelocity.toFixed(1)} m/s
+          {/* Content */}
+          <View style={styles.content}>
+            <Text style={styles.filename} numberOfLines={1}>
+              {analysisData.video_filename}
+            </Text>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoText}>
+                {video_info.total_frames} frames • {video_info.fps} fps
               </Text>
+              <Text style={styles.dateText}>{formatDate(addedAt)}</Text>
             </View>
-            {keyMetrics.maxElbowAngle !== null && (
-              <View style={styles.metricBadge}>
-                <Ionicons name="analytics" size={12} color="#004aad" />
-                <Text style={styles.metricText}>
-                  {keyMetrics.maxElbowAngle.toFixed(0)}° elbow
-                </Text>
+
+            {/* Assignment Badge */}
+            {assignedTo && (
+              <View style={styles.assignmentBadge}>
+                <Ionicons name="person" size={12} color="#4a9fff" />
+                <Text style={styles.assignmentText}>{assignedTo}</Text>
               </View>
             )}
-          </View>
-        </View>
 
-        {/* Chevron */}
-        <Ionicons name="chevron-forward" size={20} color="#666" />
-      </TouchableOpacity>
+            {/* Key Metrics Summary */}
+            <View style={styles.metricsRow}>
+              <View style={styles.metricBadge}>
+                <Ionicons name="speedometer" size={12} color="#004aad" />
+                <Text style={styles.metricText}>
+                  {keyMetrics.peakVelocity.toFixed(1)} m/s
+                </Text>
+              </View>
+              {keyMetrics.maxElbowAngle !== null && (
+                <View style={styles.metricBadge}>
+                  <Ionicons name="analytics" size={12} color="#004aad" />
+                  <Text style={styles.metricText}>
+                    {keyMetrics.maxElbowAngle.toFixed(0)}° elbow
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Chevron */}
+          <Ionicons name="chevron-forward" size={20} color="#666" />
+        </TouchableOpacity>
+
+        {/* Assign Button */}
+        <TouchableOpacity
+          style={styles.assignButton}
+          onPress={() => handleAssignPress(item.id)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="person-add" size={16} color="#fff" />
+          <Text style={styles.assignButtonText}>
+            {assignedTo ? 'Reassign' : 'Assign'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -135,6 +171,18 @@ const HistoryScreen: React.FC<Props> = ({ navigation }) => {
         <Ionicons name="add" size={28} color="#fff" />
         <Text style={styles.addButtonText}>Add Video</Text>
       </TouchableOpacity>
+
+      {/* Assign Player Modal */}
+      <AssignPlayerModal
+        visible={assignModalVisible}
+        onClose={() => setAssignModalVisible(false)}
+        onAssign={handleAssignPlayer}
+        currentAssignment={
+          selectedAnalysisId
+            ? analyses.find(a => a.id === selectedAnalysisId)?.assignedTo
+            : undefined
+        }
+      />
     </SafeAreaView>
   );
 };
@@ -168,16 +216,18 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
+  cardContainer: {
+    marginBottom: 12,
+    width: CARD_WIDTH,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1a1a1a',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#333',
-    width: CARD_WIDTH,
   },
   thumbnail: {
     width: 80,
@@ -220,6 +270,22 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 12,
   },
+  assignmentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 74, 173, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  assignmentText: {
+    color: '#4a9fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   metricsRow: {
     flexDirection: 'row',
     gap: 8,
@@ -236,6 +302,22 @@ const styles = StyleSheet.create({
   metricText: {
     color: '#aaa',
     fontSize: 11,
+    fontWeight: '600',
+  },
+  assignButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#004aad',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 8,
+    gap: 6,
+  },
+  assignButtonText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
   },
   emptyState: {

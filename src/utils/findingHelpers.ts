@@ -1,4 +1,5 @@
 import { KeyMoment } from '../types/report';
+import { FrameNote } from '../types/notes';
 
 /**
  * MediaPipe Pose landmark IDs for relevant joints
@@ -24,9 +25,10 @@ export const MediaPipeLandmarks = {
 export interface MarkerData {
   frame: number;
   color: string;
-  type: 'keyMoment' | 'phaseStart' | 'phaseEnd';
+  type: 'keyMoment' | 'phaseStart' | 'phaseEnd' | 'note';
   label: string;
   keyMoment?: KeyMoment;
+  frameNote?: FrameNote;
 }
 
 /**
@@ -108,6 +110,13 @@ export function getColorForFindingType(label: string): string {
   }
 
   return '#888888'; // Gray - default
+}
+
+/**
+ * Color for note markers
+ */
+export function getNoteMarkerColor(): string {
+  return '#ffbb00'; // Yellow - notes
 }
 
 /**
